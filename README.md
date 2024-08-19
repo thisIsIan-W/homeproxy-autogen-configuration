@@ -18,6 +18,9 @@ bash homeproxy_rules.sh
 
 
 ## 注意事项
+
+
+### RULESET_URLS
 ```shell
 
 # RULESET_URLS 中的规则配置为：规则集自定义名称(小写)|规则集urls
@@ -63,4 +66,15 @@ bash homeproxy_rules.sh
 #   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
 #   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/x.srs"
 # )
+```
+
+### DNS_SERVERS
+
+```shell
+DNS_SERVERS=(
+  "google|https://dns.google/dns-query"
+
+  "cloudflare|https://cloudflare-dns.com/dns-query
+  1.1.1.1"
+)
 ```
