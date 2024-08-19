@@ -33,7 +33,7 @@ config homeproxy 'config'
 
 config homeproxy 'experimental'
 	option clash_api_port '9090'
-	option clash_api_log_level 'debug'
+	option clash_api_log_level 'warn'
 	option clash_api_enabled '1'
 	option set_dash_backend '1'
 	option clash_api_secret '123456'
