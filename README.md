@@ -25,20 +25,20 @@ bash homeproxy_rules.sh
 
 ### RULESET_URLS
 
-RULESET_URLS 中的规则配置为：**规则集自定义名称(小写)|规则集urls**
-由于 luci 的限制，规则集自定义名称不允许包含 "-" 等特殊字符，如果发现刷新网页后提示 luci 错误，把特殊字符删掉重新生成再试!
-以下 3 种方式三选一，请严格参照已存在规则集格式新增！
+RULESET_URLS 中的规则配置为：**规则集自定义名称(小写)|规则集urls** <br/>
+由于 luci 的限制，规则集自定义名称不允许包含 "-" 等特殊字符，如果发现刷新网页后提示 luci 错误，把特殊字符删掉重新生成再试! <br/>
+以下 3 种方式三选一，请严格参照已存在规则集格式新增！<br/>
 
 
 #### 按照机场分组
 
 ```shell
 RULESET_URLS=(
-  "aiport_01|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
+  "airport_01|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/googlefcm.srs
   ... 可以添加更多"
 
-  "aiport_02|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
+  "airport_02|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
   ... 可以添加更多"
 )
