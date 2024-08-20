@@ -228,6 +228,7 @@ ${template_list}
           if [ "$config_type" = "dns" ]; then
             template+="
   option mode 'default'
+  list outbound 'routing_node_${key}'
 "
           fi
 
