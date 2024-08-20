@@ -1,9 +1,8 @@
 # homeproxy-autogen-configuration
 一种更简单的生成 [luci-app-homeproxy](https://fantastic-packages.github.io/packages/releases/) 配置的方法(aka 懒人脚本)。<br/>
 可以做到除节点配置项以外的其它主要配置全部自动按照自定义规则集模板自动生成。
-
-
-
+<br/>
+<br/>
 ## 使用手册
 1. 下载2个脚本文件到你的设备上；
 2. 自定义 `homeproxy_rules_definations.sh` 文件中的配置;
