@@ -5,7 +5,7 @@
 ## 使用手册
 1. 下载2个脚本文件到你的设备上；
 2. 自定义 `homeproxy_rules_definations.sh` 文件中的配置;
-3. 把2个脚本上传到你需要执行透明代理的设备上，并赋予其执行权限;
+3. 把2个脚本上传到你需要执行透明代理的设备上，目录随意，并赋予其执行权限;
 ```shell
 chmod +x homeproxy_rules.sh
 chmod +x homeproxy_rules_defination.sh
