@@ -25,63 +25,80 @@ bash homeproxy_rules.sh
 
 ### RULESET_URLS
 
-套用以下规则前请删除每行行首的"#"字符。
+RULESET_URLS 中的规则配置为：**规则集自定义名称(小写)|规则集urls**
+由于 luci 的限制，规则集自定义名称不允许包含 "-" 等特殊字符，如果发现刷新网页后提示 luci 错误，把特殊字符删掉重新生成再试!
+以下 3 种方式三选一，请严格参照已存在规则集格式新增！
+
+
+#### 按照机场分组
 
 ```shell
+RULESET_URLS=(
+  "aiport_01|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/googlefcm.srs
+  ... 可以添加更多"
 
-# RULESET_URLS 中的规则配置为：规则集自定义名称(小写)|规则集urls
+  "aiport_02|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
+  ... 可以添加更多"
+)
+```
 
-# 由于 luci 的限制，规则集自定义名称不允许包含 "-" 等特殊字符，如果发现刷新网页后提示 luci 错误，把特殊字符删掉重新生成再试！
-# 以下 3 种方式三选一，请严格参照已存在规则集格式新增！
 
+#### 按照代理节点分组
+```shell
+RULESET_URLS=(
+  "us_node|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/googlefcm.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/google.srs
+  ... 可以添加更多"
 
-# 按照机场分组
-# RULESET_URLS=(
-#   "aiport_01|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/googlefcm.srs
-#   ... 可以添加更多"
+  "sg_node|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/x.srs
+  ... 可以添加更多"
+)
+```
 
-#   "aiport_02|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
-#   ... 可以添加更多"
-# )
+#### 按照规则集合分组
 
-# 代理节点分组方法：
-# RULESET_URLS=(
-#   "us_node|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/googlefcm.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/google.srs
-#   ... 可以添加更多"
+```shell
+RULESET_URLS=(
+  "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/googlefcm.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/google.srs
+  ... 可以添加更多"
 
-#   "sg_node|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/x.srs
-#   ... 可以添加更多"
-# )
-
-# 规则集名称分组方法：
-# RULESET_URLS=(
-#   "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/googlefcm.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/google.srs
-#   ... 可以添加更多"
-
-#   "twitter|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
-#   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/x.srs
-#   ... 可以添加更多"
-# )
+  "twitter|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/x.srs
+  ... 可以添加更多"
+)
 ```
 
 ### DNS_SERVERS
 
+在这里配置你想要使用的DNS服务商，命名方式、规则和前面的规则集配置相同。
+
 ```shell
 DNS_SERVERS=(
-  "google|https://dns.google/dns-query"
+  "google|https://dns.google/dns-query
+  8.8.8.8
+  ...可以添加更多"
 
   "cloudflare|https://cloudflare-dns.com/dns-query
   1.1.1.1"
+
+  "tencent|https://doh.pub/dns-query
+  https://1.12.12.12/dns-query"
+
+  "aliyun|https://dns.alidns.com/dns-query
+  https://223.5.5.5/dns-query
+  223.5.5.5"
+
+  "opendns|https://doh.opendns.com/dns-query
+  https://dns.umbrella.com/dns-query"
 )
 ```
