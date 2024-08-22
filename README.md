@@ -27,12 +27,14 @@ bash homeproxy_rules.sh
 
 ### RULESET_URLS
 
-RULESET_URLS 中的规则配置为：**规则集自定义名称(小写)|规则集urls** <br/>
+RULESET_URLS 中的规则配置为：**规则集自定义名称(小写)|规则集urls** <br/><br/>
 由于 luci 的限制，规则集自定义名称不允许包含 "-" 等特殊字符，如果发现刷新网页后提示 luci 错误，把特殊字符删掉重新生成再试! <br/>
 以下 3 种方式三选一，请严格参照已存在规则集格式新增！<br/>
 
 
 #### 按照机场分组
+
+注意，机场自定义名称不可以重复！
 
 ```shell
 RULESET_URLS=(
@@ -43,11 +45,19 @@ RULESET_URLS=(
   "airport_02|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/twitter.srs
   https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/twitter.srs
   ... 可以添加更多"
+
+  "airport_03|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/telegram.srs"
+
+  # 可以添加更多
+  ...
 )
 ```
 
 
 #### 按照代理节点分组
+
+自定义节点名称不可以重复！
+
 ```shell
 RULESET_URLS=(
   "us_node|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs
@@ -64,6 +74,8 @@ RULESET_URLS=(
 ```
 
 #### 按照规则集合分组
+
+自定义规则集名称不可以重复！
 
 ```shell
 RULESET_URLS=(
@@ -82,7 +94,8 @@ RULESET_URLS=(
 
 ### DNS_SERVERS
 
-在这里配置你想要使用的DNS服务商，命名方式、规则和前面的规则集配置相同。
+在这里配置你想要使用的DNS服务商，命名方式、规则和前面的规则集配置相同。<br/>
+第一条配置会被作为默认DNS服务器启用，其余默认不启用。
 
 ```shell
 DNS_SERVERS=(
@@ -100,7 +113,6 @@ DNS_SERVERS=(
   https://223.5.5.5/dns-query
   223.5.5.5"
 
-  "opendns|https://doh.opendns.com/dns-query
-  https://dns.umbrella.com/dns-query"
+  "opendns|https://doh.opendns.com/dns-query"
 )
 ```
