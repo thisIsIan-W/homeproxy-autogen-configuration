@@ -22,6 +22,7 @@ bash homeproxy_rules.sh
 6. 刷新homeproxy界面，之后：
    1. 手动添加订阅，并在`节点设置 - 节点` 为每个自定义节点配置相应的出站；
    2. 若配置了 `reject_out` 规则集，则需要在 `DNS 规则(DNS Rules)` 以及 `路由规则(Routing Rules)` 中将该规则拖拽到合适的顺序上
+7. 进入 `服务状态` 功能，点击 **Clash dashboard version** 右侧的更新按钮更新UI
 
 
 

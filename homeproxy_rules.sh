@@ -38,7 +38,7 @@ config homeproxy 'experimental'
   option clash_api_log_level 'warn'
   option clash_api_enabled '1'
   option set_dash_backend '1'
-  option clash_api_secret '123456'
+  option clash_api_secret '$(tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 20)'
   option dashboard_repo 'metacubex/metacubexd'
 
 config homeproxy 'control'
