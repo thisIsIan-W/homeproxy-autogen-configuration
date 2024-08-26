@@ -36,15 +36,17 @@ bash homeproxy_rules.sh
 
 RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
 
-最终生成的规则集、DNS规则、路由规则、路由节点等的顺序会 **严格按照规则集定义的顺序** 添加到列表中。<br/>
+最终生成的规则集、DNS规则、路由规则、路由节点等的顺序会 **严格按照规则集定义的顺序** 添加到列表中。
 
-<br/><br/>
+<br/>
+
+<br/>
 
 #### 写法
 
 * ***规则集自定义名称*** 不允许重复！
 
-* ***规则集自定义名称*** 允许包含 "-" 和 "_" 字符，支持纯英文大小写，但不支持 `@*#` 等特殊字符(比如 `google@cn.srs`)!；
+* ***规则集自定义名称*** 及 ***URL***允许包含 "-" 和 "_" 字符，支持纯英文大小写及数字，但不支持 `@*#` 等特殊字符(比如 `google@cn.srs`/ `google#cn`)!；
 
 * 所有规则集中的url都可以自行增删、替换；
 
@@ -68,22 +70,18 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
   RULESET_URLS=(
     "google|url1
     url2
-    url3
-    url4
-    url5"
+    url3"
   )
   
   DNS_SERVERS=(
     "google|url1
     url2
-    url3
-    url4
-    url5"
+    url3"
   )
   ```
-
   
-
+  
+  
 * ***错误写法示例***
 
   ```shell
@@ -97,6 +95,10 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
     "google|url1
     #url2
     url3"
+  )
+  # 错误写法三（不支持下载的规则集文件名中包含@等特殊符号）：
+  RULESET_URLS=(
+    "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google@cn.srs"
   )
   ```
 
@@ -175,7 +177,11 @@ RULESET_URLS=(
 )
 ```
 
+<br/>
 
+<br/>
+
+<br/>
 
 ### DNS_SERVERS
 
