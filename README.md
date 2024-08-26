@@ -1,5 +1,6 @@
 # homeproxy-autogen-configuration
-一种更简单的生成 [luci-app-homeproxy](https://fantastic-packages.github.io/packages/releases/) 配置的方法(aka 懒人脚本)。<br/>
+一种更简单的生成 luci-app-homeproxy 配置的方法(aka 懒人脚本)。<br/>
+请从 [下载链接](https://fantastic-packages.github.io/packages/releases/) 下载适用于你机器架构的安装包安装！
 <br/>
 <br/>
 
