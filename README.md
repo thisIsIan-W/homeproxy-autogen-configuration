@@ -48,9 +48,15 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
 
 #### 写法
 
+支持 srs 和 json 格式的规则集文件。
+
+支持 ***URL*** 和 ***本地绝对路径***。
+
 * ***规则集自定义名称*** 不允许重复！
 
-* ***规则集自定义名称*** 及 ***URL***允许包含 "-" 和 "_" 字符，支持纯英文大小写及数字，但不支持 `@*#` 等特殊字符(比如 `google@cn.srs`/ `google#cn`)!；
+* ***规则集自定义名称*** 及 ***URL***允许包含"_"、"-"、"#"、"@"、"*" 字符，以及 纯英文大小写及数字；
+
+  * 由于luci界面的限制，如果规则集文件名中包含"-"、"#"、"@"、"*"字符，会被自动替换为 "_"
 
 * 所有规则集中的url都可以自行增删、替换；
 
@@ -62,19 +68,22 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
   # 单行写法示例
   RULESET_URLS=(
     "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs"
+    "telegram|/etc/homeproxy/ruleset/telegram.json"
   )
   
   DNS_SERVERS=(
-    "google|https://dns.google/dns-query"
+    "Google|https://dns.google/dns-query"
+    "cloudflare|https://cloudflare-dns.com/dns-query"
   )
   ```
 
   ```shell
   # 多行写法示例
   RULESET_URLS=(
-    "google|url1
-    url2
-    url3"
+    "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-trust-services@cn.srs
+    https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.json
+    /etc/homeproxy/ruleset/googlefcm.srs
+    /etc/homeproxy/ruleset/google.json"
   )
   
   DNS_SERVERS=(
@@ -83,9 +92,9 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
     url3"
   )
   ```
+
   
-  
-  
+
 * ***错误写法示例***
 
   ```shell
@@ -99,10 +108,6 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
     "google|url1
     #url2
     url3"
-  )
-  # 错误写法三（不支持下载的规则集文件名中包含@等特殊符号）：
-  RULESET_URLS=(
-    "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google@cn.srs"
   )
   ```
 

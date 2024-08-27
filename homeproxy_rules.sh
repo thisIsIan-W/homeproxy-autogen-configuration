@@ -198,29 +198,18 @@ config routing_node '$DEFAULT_OUTBOUND'
         if [ "$key" = "reject_out" ]; then
           if [ "$config_type" != "outbound_node" ]; then
             printf "config %s '%s_%s_blocked'\n" "$keyword" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
-            printf "  option label '%s_%s_blocked'\n" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
-            printf "  option enabled '1'\n" >>"$TMP_HOMEPROXY_DIR"
-            printf "  option mode 'default'\n  option server 'block-dns'\n  option outbound 'block-out'\n" >>"$TMP_HOMEPROXY_DIR"
+            printf "  option label '%s_%s_blocked'\n  option enabled '1'\n  option mode 'default'\n" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
+            printf "  option server 'block-dns'\n  option outbound 'block-out'\n" >>"$TMP_HOMEPROXY_DIR"
           fi
         else
           printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
-          printf "  option label %s_%s\n" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
-          printf "  option enabled '1'\n" >>"$TMP_HOMEPROXY_DIR"
+          printf "  option label %s_%s\n  option enabled '1'\n" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
 
           [ "$key" != "direct_out" ] && printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TMP_HOMEPROXY_DIR" || printf "  option server 'direct-out'\n" >>"$TMP_HOMEPROXY_DIR"
+          [ "$config_type" = "dns" ] && printf "  option mode 'default'\n  list outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
+          [ "$config_type" = "outbound" ] &&  printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
+          [ "$config_type" = "outbound_node" ] && printf "  option domain_strategy 'ipv4_only'\n  option node 'node_%s_outbound_nodes'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
 
-          if [ "$config_type" = "dns" ]; then
-            printf "  option mode 'default'\n  list outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-          fi
-
-          if [ "$config_type" = "outbound" ]; then
-            printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-          fi
-
-          if [ "$config_type" = "outbound_node" ]; then
-            printf "  option domain_strategy 'ipv4_only'\n" >>"$TMP_HOMEPROXY_DIR"
-            printf "  option node 'node_%s_outbound_nodes'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-          fi
         fi
 
         # 规则集列表放最后
@@ -234,42 +223,48 @@ config routing_node '$DEFAULT_OUTBOUND'
         done
         printf "\n" >>"$TMP_HOMEPROXY_DIR"
       done
-
     done
+
   elif [ "$config_type" = "ruleset" ]; then
 
     for key in ${RULESET_MAP_KEY_ORDER[@]}; do
       RULESET_CONFIG_KEY_ORDER_MAP+=("$key")
       for url in ${RULESET_MAP[$key]}; do
-        # Ruleset Settings 名称中不能包含"-"
-        rule_name=$(basename "$url" | cut -d. -f1 | sed 's/-/_/g')
+        local file_type=0
+        [[ -f "$url" && -s "$url" && ("$url" == *.srs || "$url" == *.json) ]] && file_type=1 # json或srs文件且文件大小大于0
+        [[ "$url" =~ ^(https?):// && ( "$url" =~ \.srs$ || "$url" =~ \.json$ ) ]] && file_type=2 # 合法url
+
+        if [ "$file_type" -eq 0 ]; then
+          echo "$url 既不是合法url也不是合法的文件绝对路径(文件大小必须大于0)，跳过本条！"
+          continue
+        fi
+
+        local tmp_rule_name=$(basename "$url")
+        local rule_name="${tmp_rule_name%.*}"
+        if [[ "$rule_name" == *"@"* ]] || [[ "$rule_name" == *"*"* ]] || \
+        [[ "$rule_name" == *"."* ]] || [[ "$rule_name" == *"#"* ]] || \
+        [[ "$rule_name" == *"-"* ]]; then
+          rule_name=$(echo "$rule_name" | sed 's/[@#*.-]/_/g')
+        fi
 
         grep -q "geoip" <<<"$url" && rule_name="geoip_$rule_name" || {
-          grep -q "geosite" <<<"$url" && rule_name="geosite_$rule_name" || rule_name+="_"$(tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 8)
+          grep -q "geosite" <<<"$url" && rule_name="geosite_$rule_name" || rule_name+="_"$(tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 5)
         }
 
-        # 存在key则追加，否则直接插入
-        if [ -n "${RULESET_CONFIG_MAP["$key"]}" ]; then
-          RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},ruleset_$rule_name"
-        else
-          RULESET_CONFIG_MAP["$key"]="ruleset_$rule_name"
-        fi
+        [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
+        RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},ruleset_$rule_name" || \
+        RULESET_CONFIG_MAP["$key"]="ruleset_$rule_name"
 
-        cat <<EOF >>"$TMP_HOMEPROXY_DIR"
-config ruleset 'ruleset_${rule_name}'
-  option label 'ruleset_${rule_name}'
-  option enabled '1'
-  option type 'remote'
-  option url '${RULESET_MIRROR_PREFIX}/${url}'
-  option update_interval '24h'
-EOF
-        local filename=$(basename "$url")
-        local extension="${filename##*.}"
-        if [ "$extension" = "srs" ]; then
-          printf "  option format 'binary'\n\n" >>"$TMP_HOMEPROXY_DIR"
-        else
-          printf "  option format 'source'\n\n" >>"$TMP_HOMEPROXY_DIR"
-        fi
+        printf "config ruleset 'ruleset_%s'\n  option label 'ruleset_%s'\n  option enabled '1'\n" "$rule_name" "$rule_name" >>"$TMP_HOMEPROXY_DIR"
+
+        [ "$file_type" -eq 1 ] && \
+        printf "  option type 'local'\n  option path '%s'\n" "$url" >>"$TMP_HOMEPROXY_DIR" || \
+        printf "  option type 'remote'\n  option update_interval '24h'\n  option url '%s/%s'\n" "$RULESET_MIRROR_PREFIX" "$url" >>"$TMP_HOMEPROXY_DIR"
+
+        local extension="${tmp_rule_name##*.}"
+        [ "$extension" = "srs" ] && \
+        printf "  option format 'binary'\n\n" >>"$TMP_HOMEPROXY_DIR" || \
+        printf "  option format 'source'\n\n" >>"$TMP_HOMEPROXY_DIR"
       done
     done
   fi
@@ -284,8 +279,6 @@ config_map() {
   for entry in "${array_ref[@]}"; do
     local key="${entry%%|*}"
     local values="${entry#*|}"
-    # mapfile -t urls <<<"$values"
-
     map_order_ref+=("$key")
     IFS=$'\n' read -r -d '' -a urls <<<"$values"
     map_ref["$key"]="${urls[*]}"
