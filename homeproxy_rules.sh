@@ -1,95 +1,141 @@
 #!/bin/bash
-
 . homeproxy_rules_defination.sh
 
 TMP_HOMEPROXY_DIR="/etc/config/homeproxy"
-RULESET_MIRROR_PREFIX="https://mirror.ghproxy.com"
+MIRROR_PREFIX_URL="https://mirror.ghproxy.com"
+DEFAULT_HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
+
 DEFAULT_OUTBOUND="routing_node_manual_select"
 FIRST_DNS_SERVER=""
 
-add_default_config() {
-  cat >"$TMP_HOMEPROXY_DIR" <<EOF
+GLOBAL_CONFIG="homeproxy"
 
-config homeproxy 'infra'
-  option __warning 'DO NOT EDIT THIS SECTION, OR YOU ARE ON YOUR OWN!'
-  option common_port '22,53,80,143,443,465,853,873,993,995,8080,8443,9418'
-  option mixed_port '5330'
-  option redirect_port '5331'
-  option tproxy_port '5332'
-  option dns_port '5333'
-  option china_dns_port '5334'
-  option tun_name 'singtun0'
-  option tun_addr4 '172.19.0.1/30'
-  option tun_addr6 'fdfe:dcba:9876::1/126'
-  option tun_mtu '9000'
-  option table_mark '100'
-  option self_mark '100'
-  option tproxy_mark '101'
-  option tun_mark '102'
-
-config homeproxy 'config'
-  option routing_mode 'custom'
-  option routing_port 'common'
-  option proxy_mode 'redirect_tproxy'
-  option ipv6_support '0'
-
-config homeproxy 'experimental'
-  option clash_api_port '9090'
-  option clash_api_log_level 'warn'
-  option clash_api_enabled '1'
-  option set_dash_backend '1'
-  option clash_api_secret '$(tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 20)'
-  option dashboard_repo 'metacubex/metacubexd'
-
-config homeproxy 'control'
-  option lan_proxy_mode 'disabled'
-  list wan_proxy_ipv4_ips '91.105.192.0/23'
-  list wan_proxy_ipv4_ips '91.108.4.0/22'
-  list wan_proxy_ipv4_ips '91.108.8.0/22'
-  list wan_proxy_ipv4_ips '91.108.16.0/22'
-  list wan_proxy_ipv4_ips '91.108.12.0/22'
-  list wan_proxy_ipv4_ips '91.108.20.0/22'
-  list wan_proxy_ipv4_ips '91.108.56.0/22'
-  list wan_proxy_ipv4_ips '149.154.160.0/20'
-  list wan_proxy_ipv4_ips '185.76.151.0/24'
-
-config homeproxy 'routing'
-  option sniff_override '0'
-  option default_outbound '$DEFAULT_OUTBOUND'
-  option bypass_cn_traffic '0'
-
-config homeproxy 'server'
-  option enabled '0'
-  option auto_firewall '0'
-
-config routing_rule 'route_clash_direct'
-  option label 'route_clash_direct'
-  option enabled '1'
-  option mode 'default'
-  option clash_mode 'direct'
-  option outbound 'direct-out'
-
-config routing_rule 'route_clash_global'
-  option label 'route_clash_global'
-  option enabled '1'
-  option mode 'default'
-  option clash_mode 'global'
-  option outbound 'routing_node_global'
-
-config homeproxy 'subscription'
-  option auto_update '0'
-  option allow_insecure '0'
-  option packet_encoding 'xudp'
-  option update_via_proxy '0'
-  option filter_nodes 'blacklist'
-  list filter_keywords 'Expiration|Remaining'
-EOF
+gen_random_secret() {
+  tr -dc 'a-zA-Z0-9' </dev/urandom | head -c $1
 }
 
-add_dns_config() {
-  local enabled_setting
-  local dns_server_str=""
+add_default_config() {
+  if [ -f "$TMP_HOMEPROXY_DIR" ]; then
+    mv "$TMP_HOMEPROXY_DIR" "$TMP_HOMEPROXY_DIR.bak"
+    echo "/etc/config/homeproxy 文件已备份！"
+  fi
+
+  wget -O "$TMP_HOMEPROXY_DIR" "$DEFAULT_HOMEPROXY_CONFIG_URL"
+  chmod +x "$TMP_HOMEPROXY_DIR"
+
+  local output_msg=$(uci get $GLOBAL_CONFIG.config 2>&1)
+  if [[ "$output_msg" != *"Entry not found"* ]]; then
+      $(uci delete $GLOBAL_CONFIG.config)
+  fi
+
+  # Default outbound
+  $(uci -q batch <<-EOF >"/dev/null"
+    set $GLOBAL_CONFIG.routing.default_outbound=$DEFAULT_OUTBOUND
+    set $GLOBAL_CONFIG.routing.sniff_override='0'
+
+    set $GLOBAL_CONFIG.config=$GLOBAL_CONFIG
+    set $GLOBAL_CONFIG.config.routing_mode='custom'
+    set $GLOBAL_CONFIG.config.routing_port='all'
+    set $GLOBAL_CONFIG.config.proxy_mode='redirect_tproxy'
+    set $GLOBAL_CONFIG.config.ipv6_support='0'
+
+    set $GLOBAL_CONFIG.experimental=$GLOBAL_CONFIG
+    set $GLOBAL_CONFIG.experimental.clash_api_port='9090'
+    set $GLOBAL_CONFIG.experimental.clash_api_log_level='warn'
+    set $GLOBAL_CONFIG.experimental.clash_api_enabled='1'
+    set $GLOBAL_CONFIG.experimental.set_dash_backend='1'
+    set $GLOBAL_CONFIG.experimental.clash_api_secret=$(gen_random_secret 20)
+    set $GLOBAL_CONFIG.experimental.dashboard_repo='metacubex/metacubexd'
+
+    delete $GLOBAL_CONFIG.nodes_domain
+    delete $GLOBAL_CONFIG.dns
+
+    set $GLOBAL_CONFIG.dns=$GLOBAL_CONFIG
+    set $GLOBAL_CONFIG.dns.dns_strategy='ipv4_only'
+    set $GLOBAL_CONFIG.dns.default_server=$FIRST_DNS_SERVER
+    set $GLOBAL_CONFIG.dns.default_strategy='ipv4_only'
+    set $GLOBAL_CONFIG.dns.client_subnet='1.0.1.0'
+
+    set $GLOBAL_CONFIG.route_clash_direct='routing_rule'
+    set $GLOBAL_CONFIG.route_clash_direct.label='route_clash_direct'
+    set $GLOBAL_CONFIG.route_clash_direct.enabled='1'
+    set $GLOBAL_CONFIG.route_clash_direct.mode='default'
+    set $GLOBAL_CONFIG.route_clash_direct.clash_mode='direct'
+    set $GLOBAL_CONFIG.route_clash_direct.outbound='direct-out'
+
+    set $GLOBAL_CONFIG.route_clash_global='routing_rule'
+    set $GLOBAL_CONFIG.route_clash_global.label='route_clash_global'
+    set $GLOBAL_CONFIG.route_clash_global.enabled='1'
+    set $GLOBAL_CONFIG.route_clash_global.mode='default'
+    set $GLOBAL_CONFIG.route_clash_global.clash_mode='direct'
+    set $GLOBAL_CONFIG.route_clash_global.outbound='routing_node_global'
+    
+    set $GLOBAL_CONFIG.dns_nodes_any='dns_rule'
+    set $GLOBAL_CONFIG.dns_nodes_any.label='dns_nodes_any'
+    set $GLOBAL_CONFIG.dns_nodes_any.enabled='1'
+    set $GLOBAL_CONFIG.dns_nodes_any.mode='default'
+    set $GLOBAL_CONFIG.dns_nodes_any.server='default-dns'
+    add_list $GLOBAL_CONFIG.dns_nodes_any.outbound='any-out'
+
+    set $GLOBAL_CONFIG.dns_clash_direct='dns_rule'
+    set $GLOBAL_CONFIG.dns_clash_direct.label='dns_clash_direct'
+    set $GLOBAL_CONFIG.dns_clash_direct.enabled='1'
+    set $GLOBAL_CONFIG.dns_clash_direct.mode='default'
+    set $GLOBAL_CONFIG.dns_clash_direct.clash_mode='direct'
+    set $GLOBAL_CONFIG.dns_clash_direct.server=$FIRST_DNS_SERVER
+    add_list $GLOBAL_CONFIG.dns_clash_direct.outbound='direct-out'
+
+    set $GLOBAL_CONFIG.dns_clash_global='dns_rule'
+    set $GLOBAL_CONFIG.dns_clash_global.label='dns_clash_global'
+    set $GLOBAL_CONFIG.dns_clash_global.enabled='1'
+    set $GLOBAL_CONFIG.dns_clash_global.mode='default'
+    set $GLOBAL_CONFIG.dns_clash_global.clash_mode='global'
+    set $GLOBAL_CONFIG.dns_clash_global.server=$FIRST_DNS_SERVER
+    add_list $GLOBAL_CONFIG.dns_clash_global.outbound='routing_node_global'
+
+    set $GLOBAL_CONFIG.routing_node_auto_select='routing_node'
+    set $GLOBAL_CONFIG.routing_node_auto_select.label='♻️ 自动选择出站'
+    set $GLOBAL_CONFIG.routing_node_auto_select.node='node_Auto_Select'
+    set $GLOBAL_CONFIG.routing_node_auto_select.domain_strategy='ipv4_only'
+    set $GLOBAL_CONFIG.routing_node_auto_select.enabled='1'
+
+    set $GLOBAL_CONFIG.routing_node_global='routing_node'
+    set $GLOBAL_CONFIG.routing_node_global.label='🌏 全局代理出站'
+    set $GLOBAL_CONFIG.routing_node_global.node='node_Global'
+    set $GLOBAL_CONFIG.routing_node_global.domain_strategy='ipv4_only'
+    set $GLOBAL_CONFIG.routing_node_global.enabled='1'
+
+    set $GLOBAL_CONFIG.$DEFAULT_OUTBOUND='routing_node'
+    set $GLOBAL_CONFIG.$DEFAULT_OUTBOUND.label='✌️ 手动选择出站'
+    set $GLOBAL_CONFIG.$DEFAULT_OUTBOUND.node='node_Manual_Select'
+    set $GLOBAL_CONFIG.$DEFAULT_OUTBOUND.domain_strategy='ipv4_only'
+    set $GLOBAL_CONFIG.$DEFAULT_OUTBOUND.enabled='1'
+
+    set $GLOBAL_CONFIG.node_Auto_Select='node'
+    set $GLOBAL_CONFIG.node_Auto_Select.label='♻️ 自动选择'
+    set $GLOBAL_CONFIG.node_Auto_Select.type='urltest'
+    set $GLOBAL_CONFIG.node_Auto_Select.test_url='http://cp.cloudflare.com'
+    set $GLOBAL_CONFIG.node_Auto_Select.interval='10m'
+    set $GLOBAL_CONFIG.node_Auto_Select.idle_timeout='30m'
+    set $GLOBAL_CONFIG.node_Auto_Select.interrupt_exist_connections='1'
+
+    set $GLOBAL_CONFIG.node_Global='node'
+    set $GLOBAL_CONFIG.node_Global.label='🌏 全局代理'
+    set $GLOBAL_CONFIG.node_Global.type='selector'
+    set $GLOBAL_CONFIG.node_Global.interrupt_exist_connections='1'
+
+    set $GLOBAL_CONFIG.node_Manual_Select='node'
+    set $GLOBAL_CONFIG.node_Manual_Select.label='✌️ 手动选择'
+    set $GLOBAL_CONFIG.node_Manual_Select.type='selector'
+    set $GLOBAL_CONFIG.node_Manual_Select.interrupt_exist_connections='1'
+EOF
+)
+  $(uci commit $GLOBAL_CONFIG)
+}
+
+gen_dns_config() {
   local count=0
+  dns_server_str=""
 
   for dns_key in "${DNS_SERVERS_MAP_KEY_ORDER[@]}"; do
     local server_count=1
@@ -108,47 +154,11 @@ config dns_server '${dns_server_name}'
   option outbound '$DEFAULT_OUTBOUND'
   option enabled '1'
 "
-      dns_server_str+="  ${enabled_setting}"
       dns_server_str+=$'\n'
       ((count++))
       ((server_count++))
     done
   done
-
-  printf "%s\n" "$dns_server_str" >>"$TMP_HOMEPROXY_DIR"
-
-  # 追加默认dns规则
-  local default_dns_rules="
-config homeproxy 'dns'
-  option dns_strategy 'ipv4_only'
-  option default_server '${FIRST_DNS_SERVER}'
-  option default_strategy 'ipv4_only'
-  option client_subnet '1.0.1.0'
-
-config dns_rule 'nodes_any'
-  option label 'nodes_any'
-  option enabled '1'
-  option mode 'default'
-  list outbound 'any-out'
-  option server 'default-dns'
-
-config dns_rule 'clash_direct'
-  option label 'clash_direct'
-  option enabled '1'
-  option mode 'default'
-  option clash_mode 'direct'
-  option server '${FIRST_DNS_SERVER}'
-  list outbound 'direct-out'
-
-config dns_rule 'clash_global'
-  option label 'clash_global'
-  option enabled '1'
-  option mode 'default'
-  option clash_mode 'global'
-  option server '${FIRST_DNS_SERVER}'
-  list outbound 'routing_node_global'
-"
-  printf "%s\n" "$default_dns_rules" >>"$TMP_HOMEPROXY_DIR"
 }
 
 add_rules_config() {
@@ -169,31 +179,7 @@ add_rules_config() {
         ;;
     esac
 
-    if [ "$config_type" = "outbound_node" ]; then
-      template="
-config routing_node 'routing_node_auto_select'
-  option label '♻️ 自动选择出站'
-  option node 'node_Auto_Select'
-  option domain_strategy 'ipv4_only'
-  option enabled '1'
-
-config routing_node 'routing_node_global'
-  option label '🌏 全局代理出站'
-  option node 'node_Global'
-  option domain_strategy 'ipv4_only'
-  option enabled '1'
-
-config routing_node '$DEFAULT_OUTBOUND'
-  option label '✌️ 手动选择出站'
-  option node 'node_Manual_Select'
-  option domain_strategy 'ipv4_only'
-  option enabled '1'
-"
-      printf "%s\n" "$template" >>"$TMP_HOMEPROXY_DIR"
-    fi
-
     for key in ${RULESET_CONFIG_KEY_ORDER_MAP[@]}; do
-
       for value in ${RULESET_CONFIG_MAP[$key]}; do
         if [ "$key" = "reject_out" ]; then
           if [ "$config_type" != "outbound_node" ]; then
@@ -215,10 +201,6 @@ config routing_node '$DEFAULT_OUTBOUND'
         # 规则集列表放最后
         IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
         for value in "${config_values[@]}"; do
-          # DNS不追加ip类型
-          if [ "$config_type" = "dns" ] && grep -q "geoip" <<<"$value"; then
-            continue
-          fi
           printf "  list rule_set '%s'\n" "$value" >>"$TMP_HOMEPROXY_DIR"
         done
         printf "\n" >>"$TMP_HOMEPROXY_DIR"
@@ -248,7 +230,7 @@ config routing_node '$DEFAULT_OUTBOUND'
         fi
 
         grep -q "geoip" <<<"$url" && rule_name="geoip_$rule_name" || {
-          grep -q "geosite" <<<"$url" && rule_name="geosite_$rule_name" || rule_name+="_"$(tr -dc 'a-zA-Z0-9' </dev/urandom | head -c 5)
+          grep -q "geosite" <<<"$url" && rule_name="geosite_$rule_name" || rule_name+="_"$(gen_random_secret 5)
         }
 
         [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
@@ -259,7 +241,7 @@ config routing_node '$DEFAULT_OUTBOUND'
 
         [ "$file_type" -eq 1 ] && \
         printf "  option type 'local'\n  option path '%s'\n" "$url" >>"$TMP_HOMEPROXY_DIR" || \
-        printf "  option type 'remote'\n  option update_interval '24h'\n  option url '%s/%s'\n" "$RULESET_MIRROR_PREFIX" "$url" >>"$TMP_HOMEPROXY_DIR"
+        printf "  option type 'remote'\n  option update_interval '24h'\n  option url '%s/%s'\n" "$MIRROR_PREFIX_URL" "$url" >>"$TMP_HOMEPROXY_DIR"
 
         local extension="${tmp_rule_name##*.}"
         [ "$extension" = "srs" ] && \
@@ -286,29 +268,6 @@ config_map() {
 }
 
 add_custom_nodes_config() {
-  local template
-  template="
-config node 'node_Auto_Select'
-  option label '♻️ 自动选择'
-  option type 'urltest'
-  option test_url 'http://cp.cloudflare.com/'
-  option interval '10m'
-  option idle_timeout '30m'
-  option interrupt_exist_connections '1'
-
-config node 'node_Global'
-  option label '🌏 全局代理'
-  option type 'selector'
-  option interrupt_exist_connections '1'
-
-config node 'node_Manual_Select'
-  option label '✌️ 手动选择'
-  option type 'selector'
-  option interrupt_exist_connections '1'
-
-"
-  printf "%s" "$template" >>"$TMP_HOMEPROXY_DIR"
-
   for key in ${RULESET_MAP_KEY_ORDER[@]}; do
     # 广告、隐私等拒绝出站的规则不需要生成自定义节点
     if [ "$key" = "reject_out" ]; then
@@ -326,16 +285,15 @@ config node 'node_Manual_Select'
 }
 
 update_homeproxy_config() {
-  : >"$TMP_HOMEPROXY_DIR" || touch "$TMP_HOMEPROXY_DIR"
-  chmod +x "$TMP_HOMEPROXY_DIR"
-
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER
 
+  # DNS服务器
+  gen_dns_config
   # 默认配置
   add_default_config
-  # DNS服务器
-  add_dns_config
+  
+  printf "%s\n" "$dns_server_str" >>"$TMP_HOMEPROXY_DIR"
 
   # 规则
   add_rules_config "ruleset"
