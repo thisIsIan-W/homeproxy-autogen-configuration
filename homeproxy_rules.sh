@@ -14,24 +14,50 @@ gen_random_secret() {
   tr -dc 'a-zA-Z0-9' </dev/urandom | head -c $1
 }
 
+download_original_config() {
+  echo -e "准备从 $DEFAULT_HOMEPROXY_CONFIG_URL 下载原始 homeproxy 配置文件\n"
+  local download_count=0
+  while true; do
+    ((download_count++))
+
+    if [ "$download_count" -gt 5 ]; then
+      echo "下载 homeproxy 配置失败，脚本执行失败，请检查网络连接！"
+      exit 1
+    fi
+
+    wget -qO "/tmp/homeproxy" "$DEFAULT_HOMEPROXY_CONFIG_URL"
+    if [ $? -ne 0 ]; then
+      echo "第 $download_count 次尝试下载 homeproxy 配置失败(共 5 次)......"
+      ((download_count++))
+      sleep 1
+    else
+      mv /tmp/homeproxy "$TMP_HOMEPROXY_DIR"
+      chmod +x "$TMP_HOMEPROXY_DIR"
+      echo -e "homeproxy 配置文件下载成功，准备按照 homeproxy_rules_defination.sh 脚本内容执行修改......\n"
+      break
+    fi
+  done
+}
+
 add_default_config() {
   if [ -f "$TMP_HOMEPROXY_DIR" ]; then
     mv "$TMP_HOMEPROXY_DIR" "$TMP_HOMEPROXY_DIR.bak"
-    echo "/etc/config/homeproxy 文件已备份！"
+    echo "$TMP_HOMEPROXY_DIR 文件已备份至 $TMP_HOMEPROXY_DIR.bak"
   fi
 
-  wget -O "$TMP_HOMEPROXY_DIR" "$DEFAULT_HOMEPROXY_CONFIG_URL"
-  chmod +x "$TMP_HOMEPROXY_DIR"
+  download_original_config
 
   local output_msg=$(uci get $GLOBAL_CONFIG.config 2>&1)
   if [[ "$output_msg" != *"Entry not found"* ]]; then
       $(uci delete $GLOBAL_CONFIG.config)
   fi
 
-  # Default outbound
+  # Default configuration
   $(uci -q batch <<-EOF >"/dev/null"
     set $GLOBAL_CONFIG.routing.default_outbound=$DEFAULT_OUTBOUND
     set $GLOBAL_CONFIG.routing.sniff_override='0'
+
+    set $GLOBAL_CONFIG.routing.udp_timeout='300'
 
     set $GLOBAL_CONFIG.config=$GLOBAL_CONFIG
     set $GLOBAL_CONFIG.config.routing_mode='custom'
@@ -191,11 +217,10 @@ add_rules_config() {
           printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
           printf "  option label %s_%s\n  option enabled '1'\n" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
 
-          [ "$key" != "direct_out" ] && printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TMP_HOMEPROXY_DIR" || printf "  option server 'direct-out'\n" >>"$TMP_HOMEPROXY_DIR"
+          [ "$key" != "direct_out" ] && printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TMP_HOMEPROXY_DIR" || printf "  option server 'default-dns'\n" >>"$TMP_HOMEPROXY_DIR"
           [ "$config_type" = "dns" ] && printf "  option mode 'default'\n  list outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-          [ "$config_type" = "outbound" ] &&  printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
+          [ "$config_type" = "outbound" ] &&  printf "  option outbound 'routing_node_%s'\n  option mode 'default'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
           [ "$config_type" = "outbound_node" ] && printf "  option domain_strategy 'ipv4_only'\n  option node 'node_%s_outbound_nodes'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-
         fi
 
         # 规则集列表放最后
@@ -217,7 +242,7 @@ add_rules_config() {
         [[ "$url" =~ ^(https?):// && ( "$url" =~ \.srs$ || "$url" =~ \.json$ ) ]] && file_type=2 # 合法url
 
         if [ "$file_type" -eq 0 ]; then
-          echo "$url 既不是合法url也不是合法的文件绝对路径(文件大小必须大于0)，跳过本条！"
+          echo "WARN --- 请确认 $url 链接或路径格式正确(若为路径则该文件必须存在且文件大小大于0)。跳过本条规则集！"
           continue
         fi
 
@@ -303,6 +328,9 @@ update_homeproxy_config() {
 
   # 自定义出站节点
   add_custom_nodes_config
+
+  local ipv4_status=$(ubus call network.interface.lan status | grep '\"address\"\: \"' | grep -oE '([0-9]{1,3}.){3}.[0-9]{1,3}' 2>/dev/null)
+  [ -n "$ipv4_status" ] && echo -e "脚本执行成功，请手动刷新 http://$ipv4_status/cgi-bin/luci/admin/services/homeproxy 页面！" || echo -e "脚本执行成功！"
 }
 
 declare -A RULESET_MAP

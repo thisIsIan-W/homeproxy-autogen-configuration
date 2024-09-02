@@ -15,12 +15,12 @@
 chmod +x homeproxy_rules.sh
 chmod +x homeproxy_rules_defination.sh
 ```
-4. 备份原有的 `/etc/config/homeproxy` 文件（**重要!!!** 脚本执行会直接覆盖原文件）；
+4. 备份原有的 `/etc/config/homeproxy` 文件（脚本执行会直接覆盖原文件）；
 5. 执行以下命令继续生成配置：
 ```shell
 bash homeproxy_rules.sh
 ```
-如果发现控制台没有任何输出，说明脚本已经成功执行，继续往下
+
 
 6. 浏览器刷新 homeproxy 界面，之后：
    1. 手动添加订阅，并在`节点设置 - 节点` 为每个自定义节点配置相应的出站；
