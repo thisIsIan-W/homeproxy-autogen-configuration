@@ -1,6 +1,6 @@
 # homeproxy-autogen-configuration
 一种更简单的生成 ImmortalWRT(OpenWRT) homeproxy 配置的方法(aka 懒人脚本)。<br/>
-请从 [下载链接](https://fantastic-packages.github.io/packages/releases/) 下载适用于你机器架构的安装包安装！
+请从 [下载链接](https://fantastic-packages.github.io/packages/releases/) 下载适用于你机器架构的 homeproxy 安装包安装，其余来源的安装包使用后可能会出现未知错误，后果自负！
 <br/>
 <br/>
 
@@ -8,26 +8,29 @@
 
 推荐使用 VSCode 等编辑器更改配置内容。
 
-1. 下载2个脚本文件到你的设备上；
-2. 自定义 `homeproxy_rules_definations.sh` 文件中的配置(下方提供详细说明);
-3. 把2个脚本上传到你需要执行透明代理的设备上，目录随意，并赋予其执行权限;
+1. 备份原有的 `/etc/config/homeproxy` 文件（脚本执行会直接覆盖原文件）；
+2. 下载2个脚本文件到你的设备上并自定义 `homeproxy_rules_definations.sh` 文件中的配置(下方提供详细说明);
+3. 把2个脚本上传到安装了 [luci-app-homeproxy](https://fantastic-packages.github.io/packages/releases/) 的设备上，目录随意，并赋予其执行权限，最后执行指定脚本;
 ```shell
+# 举例，将2个脚本上传至 /tmp 目录下之后：
+cd /tmp
+
+# 修改2个脚本的权限
 chmod +x homeproxy_rules.sh
 chmod +x homeproxy_rules_defination.sh
-```
-4. 备份原有的 `/etc/config/homeproxy` 文件（脚本执行会直接覆盖原文件）；
-5. 执行以下命令继续生成配置：
-```shell
+
+# 执行脚本一键生成配置
 bash homeproxy_rules.sh
 ```
 
 
-6. 浏览器刷新 homeproxy 界面，之后：
-   1. 手动添加订阅，并在`节点设置 - 节点` 为每个自定义节点配置相应的出站；
-   2. 若配置了 `reject_out` 规则集，则需要在 `DNS 规则(DNS Rules)` 以及 `路由规则(Routing Rules)` 中将该规则拖拽到合适的顺序上；
-   3. 保存，暂时不要应用
-7. 进入 `服务状态` 功能，点击 **Clash dashboard version** 右侧的更新按钮更新UI
-8. 保存并应用即可
+4. 浏览器刷新 homeproxy 界面，之后：
+   1. 手动添加订阅，并在`节点设置 - 节点` 为每个自定义节点配置相应的出站节点；
+
+5. 进入 `服务状态` 功能，点击 **Clash dashboard version** 右侧的更新按钮更新UI
+
+
+6. 保存并应用即可
 
 
 
@@ -48,9 +51,8 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
 
 #### 写法
 
-支持 srs 和 json 格式的规则集文件。
-
-支持 ***URL*** 和 ***本地绝对路径***。
+* 支持 srs 和 json 格式的规则集文件。
+* 支持 ***URL*** 和 ***本地绝对路径***。
 
 * ***规则集自定义名称*** 不允许重复！
 
@@ -60,9 +62,9 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
 
 * 所有规则集中的url都可以自行增删、替换；
 
-* 如果规则集中只存在一条url，请确保行末尾的双引号处于当前行的末尾
+* 如果规则集中只存在一条url，请确保行末尾的双引号处于当前行的末尾（注意规则集的顺序）
 
-  * 注意规则集的顺序
+  
 
   ```shell
   # 单行写法示例
@@ -93,7 +95,7 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
   )
   ```
 
-  
+  <br/>
 
 * ***错误写法示例***
 
@@ -111,11 +113,14 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
   )
   ```
 
-  
-
-* 以下 3 种写法任选其一
 
 
+
+<br/>
+
+<br/>
+
+以下三种写法任选其一即可。
 
 
 #### 写法一：按照机场分组
@@ -142,7 +147,7 @@ RULESET_URLS=(
 )
 ```
 
-
+<br/>
 
 #### 写法二：按照节点分组
 
@@ -164,7 +169,7 @@ RULESET_URLS=(
 )
 ```
 
-
+<br/>
 
 #### 写法三：按照规则集合分组
 
@@ -172,8 +177,8 @@ RULESET_URLS=(
 
 ```shell
 RULESET_URLS=(
-  # 如果不希望添加拒绝出站的规则集，直接删除 "reject_out|xxx" 行即可！
   # reject_out 为保留名称不允许更改！
+  # 如果不希望添加拒绝出站的规则集，直接删除 "reject_out|xxx" 行即可！
   "reject_out|url"
   
   "google|url"
@@ -202,16 +207,17 @@ RULESET_URLS=(
 * DNS 服务器可随意增删修改，不存在保留名称；
 
 ```shell
+# 可以在下方添加更多
 DNS_SERVERS=(
   "google|url"
 
-  "cloudflare|url"
+  "cloudflare|url
+  url2
+  url3"
 
   "tencent|url1
   url2"
 
   "opendns|url"
-  
-  # 可以添加更多......
 )
 ```
