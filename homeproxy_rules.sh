@@ -95,7 +95,7 @@ add_default_config() {
     set $GLOBAL_CONFIG.route_clash_global.mode='default'
     set $GLOBAL_CONFIG.route_clash_global.clash_mode='direct'
     set $GLOBAL_CONFIG.route_clash_global.outbound='routing_node_global'
-    
+
     set $GLOBAL_CONFIG.dns_nodes_any='dns_rule'
     set $GLOBAL_CONFIG.dns_nodes_any.label='dns_nodes_any'
     set $GLOBAL_CONFIG.dns_nodes_any.enabled='1'
@@ -220,9 +220,11 @@ add_rules_config() {
           [ "$key" != "direct_out" ] && printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TMP_HOMEPROXY_DIR" || printf "  option server 'default-dns'\n" >>"$TMP_HOMEPROXY_DIR"
           [ "$config_type" = "dns" ] && printf "  option mode 'default'\n  list outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
           [ "$config_type" = "outbound" ] &&  printf "  option outbound 'routing_node_%s'\n  option mode 'default'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-          [ "$config_type" = "outbound_node" ] && printf "  option domain_strategy 'ipv4_only'\n  option node 'node_%s_outbound_nodes'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
+          [ "$config_type" = "outbound_node" ] && printf "  option domain_strategy 'ipv4_only'\n  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TMP_HOMEPROXY_DIR"
         fi
 
+        # 路由节点不需要规则集
+        [ "$config_type" = "outbound_node" ] && continue
         # 规则集列表放最后
         IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
         for value in "${config_values[@]}"; do
@@ -317,7 +319,7 @@ update_homeproxy_config() {
   gen_dns_config
   # 默认配置
   add_default_config
-  
+
   printf "%s\n" "$dns_server_str" >>"$TMP_HOMEPROXY_DIR"
 
   # 规则
