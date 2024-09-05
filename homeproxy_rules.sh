@@ -2,7 +2,7 @@
 
 . homeproxy_rules_defination.sh
 
-TMP_HOMEPROXY_DIR="/etc/config/homeproxy"
+TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 MIRROR_PREFIX_URL="https://mirror.ghproxy.com"
 HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
 
@@ -18,7 +18,7 @@ gen_random_secret() {
 }
 
 download_original_config() {
-  echo -e "准备从 $HOMEPROXY_CONFIG_URL 下载原始 homeproxy 配置文件\n"
+  echo -e "准备从 $HOMEPROXY_CONFIG_URL 下载原始 homeproxy 配置文件"
   local download_count=0
   while true; do
     ((download_count++))
@@ -34,18 +34,38 @@ download_original_config() {
       ((download_count++))
       sleep 1
     else
-      mv /tmp/homeproxy "$TMP_HOMEPROXY_DIR"
-      chmod +x "$TMP_HOMEPROXY_DIR"
-      echo -e "homeproxy 配置文件下载成功，准备按照 homeproxy_rules_defination.sh 脚本内容执行修改......\n"
+      mv /tmp/homeproxy "$TARGET_HOMEPROXY_CONFIG_PATH"
+      chmod +x "$TARGET_HOMEPROXY_CONFIG_PATH"
+      echo -e "homeproxy 配置文件下载成功，准备按照 homeproxy_rules_defination.sh 脚本内容执行修改"
       break
     fi
   done
 }
 
-add_default_config() {
-  if [ -f "$TMP_HOMEPROXY_DIR" ]; then
-    mv "$TMP_HOMEPROXY_DIR" "$TMP_HOMEPROXY_DIR.bak"
-    echo "$TMP_HOMEPROXY_DIR 文件已备份至 $TMP_HOMEPROXY_DIR.bak"
+gen_dns_server_config() {
+  local server_index=0
+  for dns_key in "${DNS_SERVERS_MAP_KEY_ORDER[@]}"; do
+    local server_url_count=1
+    for server_url in ${DNS_SERVERS_MAP[$dns_key]}; do
+      local dns_server_name="dns_server_${dns_key}_${server_url_count}"
+      printf "config dns_server '%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option label '%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option address '%s'\n" "$server_url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option address_resolver 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option address_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option resolve_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option outbound '%s'\n" "$DEFAULT_GLOBAL_OUTBOUND" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option enabled '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      ((server_index++))
+      ((server_url_count++))
+    done
+  done
+}
+
+gen_public_config() {
+  if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
+    mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
+    echo "$TARGET_HOMEPROXY_CONFIG_PATH 文件已备份至 $TARGET_HOMEPROXY_CONFIG_PATH.bak"
   fi
 
   download_original_config
@@ -83,7 +103,6 @@ add_default_config() {
     set $UCI_GLOBAL_CONFIG.dns.dns_strategy='ipv4_only'
     set $UCI_GLOBAL_CONFIG.dns.default_server=$FIRST_DNS_SERVER
     set $UCI_GLOBAL_CONFIG.dns.default_strategy='ipv4_only'
-    set $UCI_GLOBAL_CONFIG.dns.client_subnet='1.0.1.0'
 
     set $UCI_GLOBAL_CONFIG.route_clash_direct='routing_rule'
     set $UCI_GLOBAL_CONFIG.route_clash_direct.label='route_clash_direct'
@@ -96,7 +115,7 @@ add_default_config() {
     set $UCI_GLOBAL_CONFIG.route_clash_global.label='route_clash_global'
     set $UCI_GLOBAL_CONFIG.route_clash_global.enabled='1'
     set $UCI_GLOBAL_CONFIG.route_clash_global.mode='default'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.clash_mode='direct'
+    set $UCI_GLOBAL_CONFIG.route_clash_global.clash_mode='global'
     set $UCI_GLOBAL_CONFIG.route_clash_global.outbound='routing_node_global'
 
     set $UCI_GLOBAL_CONFIG.dns_nodes_any='dns_rule'
@@ -112,7 +131,6 @@ add_default_config() {
     set $UCI_GLOBAL_CONFIG.dns_clash_direct.mode='default'
     set $UCI_GLOBAL_CONFIG.dns_clash_direct.clash_mode='direct'
     set $UCI_GLOBAL_CONFIG.dns_clash_direct.server='default-dns'
-    add_list $UCI_GLOBAL_CONFIG.dns_clash_direct.outbound=$DEFAULT_CLASH_DIRECT_OUTBOUND
 
     set $UCI_GLOBAL_CONFIG.dns_clash_global='dns_rule'
     set $UCI_GLOBAL_CONFIG.dns_clash_global.label='dns_clash_global'
@@ -120,7 +138,6 @@ add_default_config() {
     set $UCI_GLOBAL_CONFIG.dns_clash_global.mode='default'
     set $UCI_GLOBAL_CONFIG.dns_clash_global.clash_mode='global'
     set $UCI_GLOBAL_CONFIG.dns_clash_global.server=$FIRST_DNS_SERVER
-    add_list $UCI_GLOBAL_CONFIG.dns_clash_global.outbound='routing_node_global'
 
     set $UCI_GLOBAL_CONFIG.routing_node_auto_select='routing_node'
     set $UCI_GLOBAL_CONFIG.routing_node_auto_select.label='♻️ 自动选择出站'
@@ -162,37 +179,9 @@ EOF
   $(uci commit $UCI_GLOBAL_CONFIG)
 }
 
-gen_dns_config() {
-  local count=0
-  dns_server_str=""
-
-  for dns_key in "${DNS_SERVERS_MAP_KEY_ORDER[@]}"; do
-    local server_count=1
-    for server_url in ${DNS_SERVERS_MAP[$dns_key]}; do
-      local dns_server_name="dns_server_${dns_key}_${server_count}"
-      # 拿第一个server_name作为默认DNS服务器出站
-      [ $count -eq 0 ] && FIRST_DNS_SERVER="$dns_server_name"
-
-      dns_server_str+="
-config dns_server '${dns_server_name}'
-  option label '${dns_server_name}'
-  option address '${server_url}'
-  option address_resolver 'default-dns'
-  option address_strategy 'ipv4_only'
-  option resolve_strategy 'ipv4_only'
-  option outbound '$DEFAULT_GLOBAL_OUTBOUND'
-  option enabled '1'
-"
-      dns_server_str+=$'\n'
-      ((count++))
-      ((server_count++))
-    done
-  done
-}
-
 CONFIG_TYPES=("dns|dns_rule" "outbound|routing_rule" "outbound_node|routing_node")
 
-add_rules_config() {
+gen_rules_config() {
   local config_type="$1"
   local keyword
   for entry in "${CONFIG_TYPES[@]}"; do
@@ -205,8 +194,10 @@ add_rules_config() {
       RULESET_CONFIG_KEY_ORDER_MAP+=("$key")
       for url in ${RULESET_MAP[$key]}; do
         local file_type=0
-        [[ -f "$url" && -s "$url" && ("$url" == *.srs || "$url" == *.json) ]] && file_type=1 # json或srs文件且文件大小大于0
-        [[ "$url" =~ ^(https?):// && ( "$url" =~ \.srs$ || "$url" =~ \.json$ ) ]] && file_type=2 # 合法url
+        # The specified URL is an absolute path, and it should point to a file that's larger than 0 and ends with either .srs or .json
+        [[ -f "$url" && -s "$url" && ("$url" == *.srs || "$url" == *.json) ]] && file_type=1
+        # The specified URL is a valid link
+        [[ "$url" =~ ^(https?):// && ( "$url" =~ \.srs$ || "$url" =~ \.json$ ) ]] && file_type=2
 
         if [ "$file_type" -eq 0 ]; then
           echo "WARN --- 请确认 $url 链接或路径格式正确(若为路径则该文件必须存在且文件大小大于0)。跳过本条规则集！"
@@ -226,19 +217,26 @@ add_rules_config() {
         }
 
         [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
-        RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},ruleset_$rule_name" || \
-        RULESET_CONFIG_MAP["$key"]="ruleset_$rule_name"
+          RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},ruleset_$rule_name" || \
+            RULESET_CONFIG_MAP["$key"]="ruleset_$rule_name"
 
-        printf "config ruleset 'ruleset_%s'\n  option label 'ruleset_%s'\n  option enabled '1'\n" "$rule_name" "$rule_name" >>"$TMP_HOMEPROXY_DIR"
+        printf "config ruleset 'ruleset_%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option label 'ruleset_%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option enabled '1'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
-        [ "$file_type" -eq 1 ] && \
-        printf "  option type 'local'\n  option path '%s'\n" "$url" >>"$TMP_HOMEPROXY_DIR" || \
-        printf "  option type 'remote'\n  option update_interval '24h'\n  option url '%s/%s'\n" "$MIRROR_PREFIX_URL" "$url" >>"$TMP_HOMEPROXY_DIR"
+        [ "$file_type" -eq 1 ] && {
+          printf "  option type 'local'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+          printf "  option path '%s'\n" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        } || {
+          printf "  option type 'remote'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+          printf "  option update_interval '24h'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+          printf "  option url '%s/%s'\n" "$MIRROR_PREFIX_URL" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        }
 
         local extension="${tmp_rule_name##*.}"
         [ "$extension" = "srs" ] && \
-        printf "  option format 'binary'\n\n" >>"$TMP_HOMEPROXY_DIR" || \
-        printf "  option format 'source'\n\n" >>"$TMP_HOMEPROXY_DIR"
+          printf "  option format 'binary'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
+          printf "  option format 'source'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       done
     done
     return 0
@@ -247,35 +245,63 @@ add_rules_config() {
   for key in ${RULESET_CONFIG_KEY_ORDER_MAP[@]}; do
     for value in ${RULESET_CONFIG_MAP[$key]}; do
       if [ "$key" = "reject_out" ]; then
-        [ "$config_type" != "outbound_node" ] && \
-        printf "config %s '%s_%s_blocked'\n" "$keyword" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR" && \
-        printf "  option label '%s_%s_blocked'\n  option enabled '1'\n  option mode 'default'\n" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR" && \
-        printf "  option server 'block-dns'\n  option outbound 'block-out'\n" >>"$TMP_HOMEPROXY_DIR"
+        [ "$config_type" = "outbound_node" ] && continue
+
+        printf "config %s '%s_%s_blocked'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option label '%s_%s_blocked'\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option mode 'default'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+
+        [ "$config_type" = "outbound" ] && \
+        printf "  option outbound 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
+        printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       else
-        printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
-        printf "  option label %s_%s\n  option enabled '1'\n" "$keyword" "$key" >>"$TMP_HOMEPROXY_DIR"
+        printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option label %s_%s\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
         [ "$key" != "direct_out" ] && \
-        printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TMP_HOMEPROXY_DIR" || \
-        printf "  option server 'default-dns'\n" >>"$TMP_HOMEPROXY_DIR"
+          printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
+          printf "  option server 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
-        [ "$config_type" = "dns" ] && \
-        printf "  option mode 'default'\n  list outbound 'routing_node_%s'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
+        [ "$config_type" = "dns" ] && printf "  option mode 'default'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+
         [ "$config_type" = "outbound" ] && \
-        printf "  option outbound 'routing_node_%s'\n  option mode 'default'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
+          printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+          printf "  option mode 'default'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+
         [ "$config_type" = "outbound_node" ] && \
-        printf "  option domain_strategy 'ipv4_only'\n  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TMP_HOMEPROXY_DIR"
+          printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+          printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       fi
 
-      # Don't have to add rulesets for Routing Nodes
       [ "$config_type" = "outbound_node" ] && continue
-      # Put all rulesets here so that all of those config_types can get a chance to add them automatically.
       IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
       for value in "${config_values[@]}"; do
-        printf "  list rule_set '%s'\n" "$value" >>"$TMP_HOMEPROXY_DIR"
+        if [ "$config_type" = "dns" ] && grep -q "geoip" <<<"$value"; then
+          continue
+        fi
+        printf "  list rule_set '%s'\n" "$value" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       done
-      printf "\n" >>"$TMP_HOMEPROXY_DIR"
+      printf "\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     done
+  done
+}
+
+gen_custom_nodes_config() {
+  for key in ${RULESET_MAP_KEY_ORDER[@]}; do
+    # Don't have to create custom nodes for ad and privacy-focused rulesets.
+    [ "$key" = "reject_out" ] && continue
+
+    printf "config node 'node_%s_outbound_nodes'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option label '%s 出站节点'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option interrupt_exist_connections '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    [ "$key" = "direct_out" ] && {
+      printf "  list order 'direct-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+      printf "  list order 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+      printf "  option default_selected 'direct-out'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    } || printf "\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
   done
 }
 
@@ -294,35 +320,31 @@ config_map() {
   done
 }
 
-add_custom_nodes_config() {
-  for key in ${RULESET_MAP_KEY_ORDER[@]}; do
-    # No need to create custom nodes for ad and privacy-focused rulesets.
-    [ "$key" = "reject_out" ] && continue
-
-    printf "config node 'node_%s_outbound_nodes'\n  option type 'selector'\n  option interrupt_exist_connections '1'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-    printf "  option label '%s 出站节点'\n" "$key" >>"$TMP_HOMEPROXY_DIR"
-    [ "$key" = "direct_out" ] && \
-    printf "  list order 'direct-out'\n  list order 'block-out'\n  option default_selected 'direct-out'\n\n" >>"$TMP_HOMEPROXY_DIR" || \
-    printf "\n" >>"$TMP_HOMEPROXY_DIR"
-  done
-}
-
 update_homeproxy_config() {
+  if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]] || \
+    [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
+    echo "homeproxy_rules_defination.sh 中配置缺失，脚本退出"
+    exit 1
+  fi
+
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER
 
-  gen_dns_config
-  add_default_config
-  printf "%s\n" "$dns_server_str" >>"$TMP_HOMEPROXY_DIR"
+  FIRST_DNS_SERVER="dns_server_${DNS_SERVERS_MAP_KEY_ORDER[0]}_1"
+  gen_public_config
+  gen_dns_server_config
 
-  add_rules_config "ruleset"
-  add_rules_config "dns"
-  add_rules_config "outbound"
-  add_rules_config "outbound_node"
-  add_custom_nodes_config
+  gen_custom_nodes_config
+  # DO NOT change the order!
+  gen_rules_config "ruleset"
+  gen_rules_config "dns"
+  gen_rules_config "outbound"
+  gen_rules_config "outbound_node"
 
-  local ipv4_status=$(ubus call network.interface.lan status | grep '\"address\"\: \"' | grep -oE '([0-9]{1,3}.){3}.[0-9]{1,3}' 2>/dev/null)
-  [ -n "$ipv4_status" ] && echo -e "脚本执行成功，请手动刷新 http://$ipv4_status/cgi-bin/luci/admin/services/homeproxy 页面！" || echo -e "脚本执行成功！"
+  local lan_ipv4_addr=$(ubus call network.interface.lan status | grep '\"address\"\: \"' | grep -oE '([0-9]{1,3}.){3}.[0-9]{1,3}' 2>/dev/null)
+  [ -n "$lan_ipv4_addr" ] && \
+    echo -e "脚本执行成功，请刷新 http://$lan_ipv4_addr/cgi-bin/luci/admin/services/homeproxy 页面查看！" || \
+    echo -e "脚本执行成功，请刷新页面查看！"
 }
 
 declare -A RULESET_MAP
