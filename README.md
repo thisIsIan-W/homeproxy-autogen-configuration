@@ -46,13 +46,11 @@ bash homeproxy_rules.sh
 
 v2.0 版本支持新增 不和规则集绑定的、更符合 sing-box 使用直觉的 自定义出站节点功能。
 
+<br/>
+
 ### RULESET_URLS
 
 RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** 
-
-<br/>
-
-<br/>
 
 <br/>
 
