@@ -1,7 +1,12 @@
 # homeproxy-autogen-configuration
-一种更简单的生成 ImmortalWRT(OpenWRT) homeproxy 配置的方法(aka 懒人脚本)。<br/>
-请从 [下载链接](https://fantastic-packages.github.io/packages/releases/) 下载适用于你机器架构的 homeproxy 安装包安装，其余来源的安装包使用后可能会出现未知错误，后果自负！
+一种更简单的生成 ImmortalWRT(OpenWRT) homeproxy 配置的方法(aka 懒人脚本)。
+
 <br/>
+
+请从 [下载链接](https://fantastic-packages.github.io/packages/releases/) 下载适用于你机器架构的 homeproxy 安装包安装，其余来源的安装包不保证可用性！
+
+<br/>
+
 <br/>
 
 ## 使用手册
@@ -39,11 +44,13 @@ bash homeproxy_rules.sh
 
 ## 注意事项
 
+v2.0 版本支持新增 不和规则集绑定的、更符合 sing-box 使用直觉的 自定义出站节点功能。
+
 ### RULESET_URLS
 
-RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
+RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** 
 
-最终生成的规则集、DNS规则、路由规则、路由节点等的顺序会 **严格按照规则集定义的顺序** 添加到列表中。
+<br/>
 
 <br/>
 
@@ -82,8 +89,7 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
   ```shell
   # 多行写法示例
   RULESET_URLS=(
-    "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-trust-services@cn.srs
-    https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.json
+    "google|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.json
     /etc/homeproxy/ruleset/googlefcm.srs
     /etc/homeproxy/ruleset/google.json"
   )
@@ -94,9 +100,9 @@ RULESET_URLS 中的规则配置为：**"规则集自定义名称|urls"** <br/>
     url3"
   )
   ```
-
+  
   <br/>
-
+  
 * ***错误写法示例***
 
   ```shell
@@ -132,13 +138,10 @@ RULESET_URLS=(
   # reject_out 为保留名称不允许更改！
   # 如果不希望添加拒绝出站的规则集，直接删除 "reject_out|xxx" 行即可！
   "reject_out|url"
-
+  
   "airport_01|url"
-
   "airport_02|url"
-
   "airport_03|url"
-
   # 可以添加更多...
   
   # direct_out 为保留名称不允许更改！
@@ -160,7 +163,6 @@ RULESET_URLS=(
   "reject_out|url"
   
   "us_node|url"
-
   "sg_node|url"
   
   # direct_out 为保留名称不允许更改！
@@ -182,7 +184,6 @@ RULESET_URLS=(
   "reject_out|url"
   
   "google|url"
-
   "twitter|url"
   
   # direct_out 为保留名称不允许更改！
@@ -202,7 +203,7 @@ RULESET_URLS=(
 在这里配置你想要使用的 ***DNS服务商***。
 
 * 命名规则为：***"DNS服务商自定义名称|urls"***；
-* ***第一条配置里的第一个url*** 会被作为默认DNS服务器在 `DNS 规则` 中选中；
+* 未使用自2.0版本后新增的自定义节点功能时，***第一条配置里的第一个url*** 会被作为默认DNS服务器在 `DNS 规则` 中选中；
 * 格式与上方自定义规则集列表中的格式相同；
 * DNS 服务器可随意增删修改，不存在保留名称；
 
