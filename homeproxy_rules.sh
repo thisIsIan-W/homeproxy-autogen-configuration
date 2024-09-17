@@ -231,15 +231,14 @@ gen_rules_config() {
 
         local tmp_rule_name=$(basename "$url")
         local rule_name="${tmp_rule_name%.*}"
-        if [[ "$rule_name" == *"@"* ]] || [[ "$rule_name" == *"*"* ]] || \
-        [[ "$rule_name" == *"."* ]] || [[ "$rule_name" == *"#"* ]] || \
-        [[ "$rule_name" == *"-"* ]]; then
-          rule_name=$(echo "$rule_name" | sed 's/[@#*.-]/_/g')
-        fi
+        local rule_name_suffix="${tmp_rule_name##*.}"
 
+        # Note that the character '-' should not be placed in the middle
+        $(echo "$rule_name" | grep -q '[-.*#@!&]') && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
         grep -q "geoip" <<<"$url" && rule_name="geoip_$rule_name" || {
           grep -q "geosite" <<<"$url" && rule_name="geosite_$rule_name" || rule_name+="_"$(gen_random_secret 5)
         }
+        echo "$tmp_rule_name 被重命名为: $rule_name.$rule_name_suffix"
 
         [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
           RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},$rule_name" || \
@@ -278,8 +277,8 @@ gen_rules_config() {
         printf "  option mode 'default'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
         [ "$config_type" = "outbound" ] && \
-        printf "  option outbound 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
-        printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+          printf "  option outbound 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
+            printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       else
         printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option label %s_%s\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -287,25 +286,23 @@ gen_rules_config() {
 
         [ "$key" != "direct_out" ] && \
           printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
-          printf "  option server 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+            printf "  option server 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
         [ "$config_type" = "dns" ] && printf "  option mode 'default'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
         [ "$config_type" = "outbound" ] && \
           printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-          printf "  option mode 'default'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+            printf "  option mode 'default'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
         [ "$config_type" = "outbound_node" ] && \
           printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-          printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+            printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       fi
 
       [ "$config_type" = "outbound_node" ] && continue
       IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
       for value in "${config_values[@]}"; do
-        if [ "$config_type" = "dns" ] && grep -q "geoip" <<<"$value"; then
-          continue
-        fi
+        [ "$config_type" = "dns" ] && grep -q "geoip" <<<"$value" && continue
         printf "  list rule_set '%s'\n" "$value" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       done
       printf "\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -370,8 +367,8 @@ update_homeproxy_config() {
   local lan_ipv4_addr
   lan_ipv4_addr=$(ubus call network.interface.lan status | grep '\"address\"\: \"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' || true)
   [ -n "$lan_ipv4_addr" ] && \
-    echo -e "脚本执行成功，若设置了自定义节点，请手动在界面修改出站信息。请刷新 http://$lan_ipv4_addr/cgi-bin/luci/admin/services/homeproxy 页面查看！" || \
-    echo -e "脚本执行成功，若设置了自定义节点，请手动在界面修改出站信息。"
+    echo -e "脚本执行成功! 刷新 http://$lan_ipv4_addr/cgi-bin/luci/admin/services/homeproxy 页面查看!\n请手动在界面检查并修改出站信息!" || \
+    echo -e "脚本执行成功，请手动在界面检查并修改出站信息!"
 }
 
 declare -A RULESET_MAP
