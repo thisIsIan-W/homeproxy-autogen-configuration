@@ -1,16 +1,7 @@
 #!/bin/bash
 
-RULESET_URLS=(
-  "reject_out|/etc/homeproxy/ruleset/adblockdns.srs"
-
-  "hk_node_1|https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/telegram.srs"
-
-  "hk_node_2|https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google.srs"
-
-  "direct_out|https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geoip/cn.srs"
-)
-
-DNS_SERVERS=(
-  "Cloudflare|https://cloudflare-dns.com/dns-query"
-  "Google|https://dns.google/dns-query"
-)
+# 请任选其一参考，并将该文件重命名为 homeproxy_rules_defination.sh 然后上传到你的设备上:
+# Windows 用户需要确保已经取消勾选 "隐藏已知文件类型的扩展名"
+# homeproxy_rules_defination_rulesets.sh
+# homeproxy_rules_defination_nodes.sh
+# homeproxy_rules_defination_airports.sh
