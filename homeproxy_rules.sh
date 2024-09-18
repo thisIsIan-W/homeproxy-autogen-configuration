@@ -4,8 +4,8 @@
 
 UCI_GLOBAL_CONFIG="homeproxy"
 FIRST_DNS_SERVER=""
-TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 MIRROR_PREFIX_URL="https://mirror.ghproxy.com"
+TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
 
 # For Routing Rules -> route_clash_direct and DNS Rules -> dns_clash_direct using purpose. DO NOT change it!
@@ -114,7 +114,7 @@ gen_public_config() {
     set $UCI_GLOBAL_CONFIG.route_clash_global.enabled='1'
     set $UCI_GLOBAL_CONFIG.route_clash_global.mode='default'
     set $UCI_GLOBAL_CONFIG.route_clash_global.clash_mode='global'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.outbound='routing_node_global'
+    set $UCI_GLOBAL_CONFIG.route_clash_global.outbound=$DEFAULT_CLASH_DIRECT_OUTBOUND
 
     set $UCI_GLOBAL_CONFIG.dns_nodes_any='dns_rule'
     set $UCI_GLOBAL_CONFIG.dns_nodes_any.label='dns_nodes_any'
@@ -235,10 +235,13 @@ gen_rules_config() {
 
         # Note that the character '-' should not be placed in the middle
         $(echo "$rule_name" | grep -q '[-.*#@!&]') && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
-        grep -q "geoip" <<<"$url" && rule_name="geoip_$rule_name" || {
-          grep -q "geosite" <<<"$url" && rule_name="geosite_$rule_name" || rule_name+="_"$(gen_random_secret 5)
-        }
-        echo "$tmp_rule_name 被重命名为: $rule_name.$rule_name_suffix"
+
+        if ( grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" )||
+           ( grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name" ); then
+          rule_name="geoip_$rule_name"
+        elif ( grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name" ); then
+          rule_name="geosite_$rule_name"
+        fi
 
         [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
           RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},$rule_name" || \
@@ -268,6 +271,7 @@ gen_rules_config() {
 
   for key in ${RULESET_CONFIG_KEY_ORDER_MAP[@]}; do
     for value in ${RULESET_CONFIG_MAP[$key]}; do
+      IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
       if [ "$key" = "reject_out" ]; then
         [ "$config_type" = "outbound_node" ] && continue
 
@@ -280,6 +284,14 @@ gen_rules_config() {
           printf "  option outbound 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
             printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       else
+        if [ "$config_type" = "dns" ]; then # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
+          local rulesets_count=0
+          for value in "${config_values[@]}"; do
+             grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value" && ((rulesets_count++))
+          done
+          [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
+        fi
+
         printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option label %s_%s\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -288,21 +300,17 @@ gen_rules_config() {
           printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
             printf "  option server 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
-        [ "$config_type" = "dns" ] && printf "  option mode 'default'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
         [ "$config_type" = "outbound" ] && \
-          printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-            printf "  option mode 'default'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+          printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
         [ "$config_type" = "outbound_node" ] && \
           printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-            printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+            printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+              continue
       fi
 
-      [ "$config_type" = "outbound_node" ] && continue
-      IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
       for value in "${config_values[@]}"; do
-        [ "$config_type" = "dns" ] && grep -q "geoip" <<<"$value" && continue
+        [ "$config_type" = "dns" ] && { grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value"; } && continue
         printf "  list rule_set '%s'\n" "$value" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       done
       printf "\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -391,17 +399,35 @@ intro() {
   fi
 
   echo ""
+  echo ""
+  echo "********************************************************"
+  echo ""
+  echo ""
+  echo ""
+  echo "      ImmortalWRT(OpenWRT) homeproxy 配置一键生成脚本      "
+  echo ""
+  echo ""
+  echo ""
+  echo "********************************************************"
+  echo ""
   echo "WARN: 请提前备份 /etc/config/homeproxy 文件, 本脚本每次执行都会覆盖原有的.bak备份!"
   echo ""
-  echo "是否需要生成配置文件规则集列表以外的自定义节点(按需取用, 不和规则集绑定, 且适用于懒得勾选一大堆机场节点的用户)? (1是, 2否)"
+  echo ""
+  echo "是否需要生成 homeproxy_rules_definations.sh 配置以外的自定义节点? (1是, 2否)"
+  echo "说明: "
+  echo "   1. 此功能'更'适用于参考了 homeproxy_rules_defination_rulesets.sh 文件修改规则集的用户"
+  echo "   2. 节点设置(Node Settings) 功能中只需要给自定义节点配置出站机场节点"
+  echo "   3. 脚本执行完成后, 到 路由规则(Routing Rules) 中统一为各个规则集配置自定义路由出站"
+  echo "   4. 如果你不明白此项功能的意义, 可选择2跳过"
+  echo ""
   read -p "请输入你的选择并回车: " AUTO_GEN_OTHER_NODES
   AUTO_GEN_OTHER_NODES=$( [ "$AUTO_GEN_OTHER_NODES" = "1" ] || \
     [ "$AUTO_GEN_OTHER_NODES" = "2" ] && echo "$AUTO_GEN_OTHER_NODES" || echo "2" )
 
   if [ "$AUTO_GEN_OTHER_NODES" = "1" ]; then
     echo ""
-    echo "请输入自定义节点名(多个节点名之间使用英文半角|分隔, 仅支持英文大小写、数字及下划线, 前后不要保留空格, 不允许重复! 例如:node_x|node_y|node_z): "
-    echo "(推荐使用 机场缩写_区域代码 或 规则集名称_node 或 节点缩写_node 的形式)"
+    echo "输入自定义节点名: "
+    echo "WARN: 多个之间使用英文半角|分隔, 仅支持英文大小写、数字及下划线, 前后不要保留空格! 例如:node_x|node_y|node_z"
     read CUSTOMIZED_NODES_STR
     IFS='|' read -r -a customized_nodes_array <<< "$CUSTOMIZED_NODES_STR"
     printf "将为你生成 【 "
@@ -409,9 +435,10 @@ intro() {
     printf "】 ${#customized_nodes_array[@]} 个新的自定义节点！"
     echo ""
     echo ""
+    echo ""
   fi
 
-  echo "是否需要生成默认节点(自动选择/全局代理/手动选择, 不推荐生成)? (1是, 2否)"
+  echo "是否需要生成默认节点(自动选择/全局代理/手动选择, 已过时, 不推荐)? (1是, 2否)"
   read -p "请输入你的选择并回车: " AUTO_GEN_DEFAULT_NODES
   AUTO_GEN_DEFAULT_NODES=$( [ "$AUTO_GEN_DEFAULT_NODES" = "1" ] || \
     [ "$AUTO_GEN_DEFAULT_NODES" = "2" ] && echo "$AUTO_GEN_DEFAULT_NODES" || echo "2" )
