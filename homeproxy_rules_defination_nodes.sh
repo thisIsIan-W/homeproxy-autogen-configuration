@@ -51,9 +51,7 @@ DNS_SERVERS=(
   # 多个相同url的 DNS 服务器，可单独为它们分配与上述标签相同的出站以就近执行解析(可选)
   "OpenDNS_HK_01|https://doh.opendns.com/dns-query"
   "OpenDNS_HK_02|https://doh.opendns.com/dns-query"
-  "OpenDNS_JP_01|https://doh.opendns.com/dns-query"
   "OpenDNS_SG_01|https://doh.opendns.com/dns-query"
   "OpenDNS_US_01|https://doh.opendns.com/dns-query"
-  "OpenDNS_US_02|https://doh.opendns.com/dns-query"
   "google|https://8.8.8.8/dns-query"
 )
