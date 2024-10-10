@@ -60,7 +60,7 @@ RULESET_URLS=(
 )
 
 DNS_SERVERS=(
-  # 多个相同url的 DNS 服务器，可单独为它们分配与上述标签相同的出站以就近执行解析(可选)
+  # 多个相同url的 DNS 服务器，可单独为不同的规则集分配不同的出站(可选)
   "OpenDNS_HK|https://doh.opendns.com/dns-query"
   "OpenDNS_JP|https://doh.opendns.com/dns-query"
   "OpenDNS_SG|https://doh.opendns.com/dns-query"
