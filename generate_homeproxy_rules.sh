@@ -391,7 +391,7 @@ intro() {
   echo ""
   echo ""
   echo ""
-  echo "      ImmortalWRT (OpenWRT) homeproxy one-key generation script.       "
+  echo "      ImmortalWRT (OpenWRT) homeproxy one-click generation script.       "
   echo ""
   echo ""
   echo ""
