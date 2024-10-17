@@ -4,10 +4,6 @@
 # **                                                                                                **
 #             Please rename this file to 'rules.sh' before execution!
 #             请在执行脚本前把当前文件重命名为 'rules.sh'!
-#
-#             You may remove all # symbols along with the content that follows.
-#             所有 # 符号及其后的内容都可以删除。
-#
 # **                                                                                                **
 # ****************************************************************************************************
 
