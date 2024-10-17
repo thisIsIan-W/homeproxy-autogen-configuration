@@ -381,7 +381,7 @@ AUTO_GEN_OTHER_NODES=2
 intro() {
   if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]] || \
     [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
-    echo "ERROR: Error(s) detected in homeproxy_rules_definition.sh, please verify! The script will now exit."
+    echo "ERROR: Error(s) detected in rules.sh, please verify! The script will now exit."
     exit 1
   fi
 
