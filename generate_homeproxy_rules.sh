@@ -16,7 +16,7 @@ gen_random_secret() {
 }
 
 download_original_config() {
-  echo "------ Downloading the original homeproxy file from GitHub."
+  echo -n "------ Downloading the original homeproxy file from GitHub......"
   local download_count=0
   while true; do
     ((download_count++))
@@ -37,6 +37,7 @@ download_original_config() {
       break
     fi
   done
+  echo "done!"
 }
 
 gen_dns_server_config() {
@@ -67,7 +68,7 @@ gen_public_config() {
 
   download_original_config
 
-  echo "------ Preparing to create default and custom nodes."
+  echo -n "------ Preparing to create default and custom nodes......"
   local output_msg=$(uci get $UCI_GLOBAL_CONFIG.config 2>&1)
   if [[ "$output_msg" != *"Entry not found"* ]]; then
       $(uci delete $UCI_GLOBAL_CONFIG.config)
@@ -102,7 +103,7 @@ EOF
 
     set $UCI_GLOBAL_CONFIG.config=$UCI_GLOBAL_CONFIG
     set $UCI_GLOBAL_CONFIG.config.routing_mode='custom'
-    set $UCI_GLOBAL_CONFIG.config.routing_port='all'
+    set $UCI_GLOBAL_CONFIG.config.routing_port='common'
     set $UCI_GLOBAL_CONFIG.config.proxy_mode='redirect_tproxy'
     set $UCI_GLOBAL_CONFIG.config.ipv6_support='0'
 
@@ -112,7 +113,7 @@ EOF
     set $UCI_GLOBAL_CONFIG.experimental.clash_api_enabled='1'
     set $UCI_GLOBAL_CONFIG.experimental.set_dash_backend='1'
     set $UCI_GLOBAL_CONFIG.experimental.clash_api_secret=$(gen_random_secret 20)
-    set $UCI_GLOBAL_CONFIG.experimental.dashboard_repo='metacubex/metacubexd'
+    set $UCI_GLOBAL_CONFIG.experimental.dashboard_repo='metacubex/yacd-meta'
 
     delete $UCI_GLOBAL_CONFIG.nodes_domain
     delete $UCI_GLOBAL_CONFIG.dns
@@ -121,6 +122,7 @@ EOF
     set $UCI_GLOBAL_CONFIG.dns.dns_strategy='ipv4_only'
     set $UCI_GLOBAL_CONFIG.dns.default_server=$FIRST_DNS_SERVER
     set $UCI_GLOBAL_CONFIG.dns.default_strategy='ipv4_only'
+    set $UCI_GLOBAL_CONFIG.dns.disable_cache='1'
 
     set $UCI_GLOBAL_CONFIG.route_clash_direct='routing_rule'
     set $UCI_GLOBAL_CONFIG.route_clash_direct.label='route_clash_direct'
@@ -159,6 +161,7 @@ EOF
 EOF
 )
   $(uci commit $UCI_GLOBAL_CONFIG)
+  echo "done!"
 }
 
 gen_unified_outbound_nodes() {
@@ -186,7 +189,78 @@ gen_unified_outbound_nodes() {
   fi
 }
 
-CONFIG_TYPES=("dns|dns_rule" "outbound|routing_rule" "outbound_node|routing_node")
+gen_rule_sets_config() {
+
+  for key in ${RULESET_MAP_KEY_ORDER_ARRAY[@]}; do
+    RULESET_CONFIG_KEY_ORDER_ARRAY+=("$key")
+    for url in ${RULESET_MAP[$key]}; do
+      local file_type=0
+      # The specified URL is an absolute path, and it should point to a file that's larger than 0 and ends with either .srs or .json
+      [[ -f "$url" && -s "$url" && ("$url" == *.srs || "$url" == *.json) ]] && file_type=1
+      # The specified URL is a valid link
+      [[ "$url" =~ ^(https?):// && ( "$url" =~ \.srs$ || "$url" =~ \.json$ ) ]] && file_type=2
+
+      if [ "$file_type" -eq 0 ]; then
+        echo "WARN --- [$url] is invalid, skipping this rule!"
+        continue
+      fi
+
+      local tmp_rule_name=$(basename "$url")
+      local rule_name="${tmp_rule_name%.*}"
+      local rule_name_suffix="${tmp_rule_name##*.}"
+
+      # Note that the character '-' should not be placed in the middle
+      $(echo "$rule_name" | grep -q '[-.*#@!&]') && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
+
+      if ( grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" )||
+          ( grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name" ); then
+        rule_name="geoip_$rule_name"
+      elif ( grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name" ); then
+        rule_name="geosite_$rule_name"
+      fi
+
+      [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
+        RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},$rule_name" || \
+        RULESET_CONFIG_MAP["$key"]="$rule_name"
+
+      printf "config ruleset '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option label '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option enabled '1'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+
+      [ "$file_type" -eq 1 ] && {
+        printf "  option type 'local'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+        printf "  option path '%s'\n" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      } || {
+        printf "  option type 'remote'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+        printf "  option update_interval '24h'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+        printf "  option url '%s/%s'\n" "$MIRROR_PREFIX_URL" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      }
+
+      local extension="${tmp_rule_name##*.}"
+      [ "$extension" = "srs" ] && \
+        printf "  option format 'binary'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
+        printf "  option format 'source'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    done
+  done
+}
+
+gen_routing_nodes_config() {
+
+  for key in ${RULESET_CONFIG_KEY_ORDER_ARRAY[@]}; do
+    if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then
+      continue
+    fi
+
+    printf "config routing_node 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option label routing_node_%s\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+  done
+}
+
+CONFIG_TYPES=("dns|dns_rule" "outbound|routing_rule")
 
 gen_rules_config() {
   local config_type="$1"
@@ -196,67 +270,10 @@ gen_rules_config() {
     [ "$config_type" = "$config_type_key" ] && keyword="${entry##*|}" && break
   done
 
-  if [ -z "$keyword" ]; then
-    for key in ${RULESET_MAP_KEY_ORDER_ARRAY[@]}; do
-      RULESET_CONFIG_KEY_ORDER_ARRAY+=("$key")
-      for url in ${RULESET_MAP[$key]}; do
-        local file_type=0
-        # The specified URL is an absolute path, and it should point to a file that's larger than 0 and ends with either .srs or .json
-        [[ -f "$url" && -s "$url" && ("$url" == *.srs || "$url" == *.json) ]] && file_type=1
-        # The specified URL is a valid link
-        [[ "$url" =~ ^(https?):// && ( "$url" =~ \.srs$ || "$url" =~ \.json$ ) ]] && file_type=2
-
-        if [ "$file_type" -eq 0 ]; then
-          echo "WARN --- [$url] is invalid, skipping this rule!"
-          continue
-        fi
-
-        local tmp_rule_name=$(basename "$url")
-        local rule_name="${tmp_rule_name%.*}"
-        local rule_name_suffix="${tmp_rule_name##*.}"
-
-        # Note that the character '-' should not be placed in the middle
-        $(echo "$rule_name" | grep -q '[-.*#@!&]') && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
-
-        if ( grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" )||
-           ( grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name" ); then
-          rule_name="geoip_$rule_name"
-        elif ( grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name" ); then
-          rule_name="geosite_$rule_name"
-        fi
-
-        [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
-          RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},$rule_name" || \
-            RULESET_CONFIG_MAP["$key"]="$rule_name"
-
-        printf "config ruleset '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option label '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option enabled '1'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
-        [ "$file_type" -eq 1 ] && {
-          printf "  option type 'local'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-          printf "  option path '%s'\n" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        } || {
-          printf "  option type 'remote'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-          printf "  option update_interval '24h'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-          printf "  option url '%s/%s'\n" "$MIRROR_PREFIX_URL" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        }
-
-        local extension="${tmp_rule_name##*.}"
-        [ "$extension" = "srs" ] && \
-          printf "  option format 'binary'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
-          printf "  option format 'source'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      done
-    done
-    return 0
-  fi
-
   for key in ${RULESET_CONFIG_KEY_ORDER_ARRAY[@]}; do
     for value in ${RULESET_CONFIG_MAP[$key]}; do
       IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
       if [ "$key" = "reject_out" ]; then
-        [ "$config_type" = "outbound_node" ] && continue
-
         printf "config %s '%s_%s_blocked'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option label '%s_%s_blocked'\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -264,7 +281,7 @@ gen_rules_config() {
 
         [ "$config_type" = "outbound" ] && \
           printf "  option outbound 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
-            printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+          printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       else
         if [ "$config_type" = "dns" ]; then # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
           local rulesets_count=0
@@ -274,21 +291,14 @@ gen_rules_config() {
           [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
         fi
 
+        [ "$key" = "direct_out" ] && [ "$config_type" = "outbound_node" ] && continue
+
         printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option label %s_%s\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
-        [ "$key" != "direct_out" ] && \
-          printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
-            printf "  option server 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
-        [ "$config_type" = "outbound" ] && \
-          printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
-        [ "$config_type" = "outbound_node" ] && \
-          printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-            printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-              continue
+        [ "$config_type" = "outbound" ] && printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       fi
 
       for value in "${config_values[@]}"; do
@@ -306,17 +316,14 @@ gen_custom_nodes_config() {
 
   for key in ${RULESET_MAP_KEY_ORDER_ARRAY[@]}; do
     # Don't have to create custom nodes for ad and privacy-focused rulesets.
-    [ "$key" = "reject_out" ] && continue
+    if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then 
+      continue
+    fi
 
     printf "config node 'node_%s_outbound_nodes'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option label '%s outbound node'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option interrupt_exist_connections '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    [ "$key" = "direct_out" ] && {
-      printf "  list order 'direct-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-      printf "  list order 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-      printf "  option default_selected 'direct-out'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    } || printf "\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option interrupt_exist_connections '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
   done
 }
 
@@ -346,18 +353,27 @@ gen_homeproxy_config() {
 
   gen_public_config
 
-  echo "------ Configuring DNS servers..."
+  echo -n "------ Configuring DNS servers..."
   gen_dns_server_config
+  echo "done!"
 
-  echo "------ Configuring custom outbound nodes..."
+  echo -n "------ Configuring custom outbound nodes..."
   gen_custom_nodes_config
+  echo "done!"
 
-  # DO NOT change the order!
-  echo "------ Configuring rule sets, DNS rules, routing nodes and routing rules..."
-  gen_rules_config "ruleset"
+  echo -n "------ Configuring rule sets..."
+  gen_rule_sets_config
+  echo "done!"
+
+  echo -n "------ Configuring DNS rules and routing rules..."
   gen_rules_config "dns"
   gen_rules_config "outbound"
-  gen_rules_config "outbound_node"
+  echo "done!"
+
+  echo -n "------ Configuring routing nodes..."
+  gen_routing_nodes_config
+  echo "done!"
+  
   echo ""
 
   local lan_ipv4_addr
