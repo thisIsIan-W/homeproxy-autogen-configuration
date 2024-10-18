@@ -16,10 +16,10 @@ gen_random_secret() {
 }
 
 to_upper() {
-	echo -e "$1" | tr "[a-z]" "[A-Z]"
+  echo -e "$1" | tr "[a-z]" "[A-Z]"
 }
 
-download_original_config() {
+download_original_config_file() {
   echo -n "------ Downloading the original homeproxy file from GitHub......"
   local download_count=0
   while true; do
@@ -60,13 +60,56 @@ match_node() {
   done
 }
 
+gen_unified_outbound_nodes() {
+
+  if [ -n "${UNIFIED_OUTBOUND_NODES+x}" ] && [ ${#UNIFIED_OUTBOUND_NODES[@]} -gt 0 ]; then
+    for node in "${UNIFIED_OUTBOUND_NODES[@]}"; do
+      local random_str=$(gen_random_secret 3)
+      local node_name="node_${node}_${random_str}"
+
+      local node_label="${node} outbound node"
+      local routing_node_name="routing_node_${node}_${random_str}"
+      local routing_node_label="routing_node_${node}"
+
+      printf "config node '%s'\n" "$node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option label '%s'\n" "$node_label" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option interrupt_exist_connections '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+
+      printf "config routing_node '%s'\n" "$routing_node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option label '%s'\n" "$routing_node_label" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option node '%s'\n" "$node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option enabled '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    done
+  fi
+}
+
+config_map() {
+  local -n array_ref=$1
+  local -n map_ref=$2
+  local -n map_order_ref=$3
+  local entry
+
+  for entry in "${array_ref[@]}"; do
+    if [[ "$entry" == *"|"* ]]; then
+      local key="${entry%%|*}"
+      local values="${entry#*|}"
+      map_order_ref+=("$key")
+      IFS=$'\n' read -r -d '' -a urls <<<"$values"
+      [ "${#urls[@]}" -le 0 ] && echo "WARN: The tag [${key}] is invalid and will be skipped..." && continue
+      map_ref["$key"]="${urls[*]}"
+    fi
+  done
+}
+
 gen_public_config() {
   if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
     mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
     echo "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' has been successfully backed up to ---> $TARGET_HOMEPROXY_CONFIG_PATH.bak"
   fi
 
-  download_original_config
+  download_original_config_file
 
   echo -n "------ Preparing to create default and custom nodes......"
   local output_msg=$(uci get $UCI_GLOBAL_CONFIG.config 2>&1)
@@ -164,29 +207,21 @@ EOF
   echo "done!"
 }
 
-gen_unified_outbound_nodes() {
+gen_custom_nodes_config() {
 
-  if [ -n "${UNIFIED_OUTBOUND_NODES+x}" ] && [ ${#UNIFIED_OUTBOUND_NODES[@]} -gt 0 ]; then
-    for node in "${UNIFIED_OUTBOUND_NODES[@]}"; do
-      local random_str=$(gen_random_secret 3)
-      local node_name="node_${node}_${random_str}"
+  gen_unified_outbound_nodes
 
-      local node_label="${node} outbound node"
-      local routing_node_name="routing_node_${node}_${random_str}"
-      local routing_node_label="routing_node_${node}"
+  for key in ${RULESET_MAP_KEY_ORDER_ARRAY[@]}; do
+    # Don't have to create custom nodes for ad and privacy-focused rulesets.
+    if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then 
+      continue
+    fi
 
-      printf "config node '%s'\n" "$node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option label '%s'\n" "$node_label" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option interrupt_exist_connections '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
-      printf "config routing_node '%s'\n" "$routing_node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option label '%s'\n" "$routing_node_label" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option node '%s'\n" "$node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option enabled '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    done
-  fi
+    printf "config node 'node_%s_outbound_nodes'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option label '%s outbound node'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option interrupt_exist_connections '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+  done
 }
 
 gen_rule_sets_config() {
@@ -278,21 +313,6 @@ gen_dns_server_config() {
   done
 }
 
-gen_routing_nodes_config() {
-
-  for key in ${RULESET_CONFIG_KEY_ORDER_ARRAY[@]}; do
-    if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then
-      continue
-    fi
-
-    printf "config routing_node 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option label routing_node_%s\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-  done
-}
-
 CONFIG_TYPES=("dns|dns_rule" "outbound|routing_rule")
 
 gen_rules_config() {
@@ -317,11 +337,16 @@ gen_rules_config() {
           printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       else
 
-        if [ "$config_type" = "dns" ]; then # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
+        local template="config ${keyword} '${keyword}_${key}'
+  option label '${keyword}_${key}'
+  option enabled '1'"
+
+        if [ "$config_type" = "dns" ]; then
           local rulesets_count=0
           for value in "${config_values[@]}"; do
              grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value" && ((rulesets_count++))
           done
+          # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
           [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
 
           local dns_key_array=("$key")
@@ -331,27 +356,25 @@ gen_rules_config() {
             match_node dns_key_array "$tmp_dns_server_name"
             [ -n "$properly_matched_node_name" ] && matched_dns_server_name="$tmp_dns_server_name" && break
           done
-        fi
 
-        printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option label %s_%s\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
-        if [ "$config_type" = "dns" ]; then
-          if [[ -n "$matched_dns_server_name" ]]; then
-            printf "  option server '%s'\n" "dns_server_$matched_dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+          if [ -n "$matched_dns_server_name" ]; then
+            template+="
+  option server 'dns_server_${matched_dns_server_name}'"
           else
             if [[ "$key" != "reject_out" && "$key" != "direct_out" ]]; then
               local last_dns_server_name="${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[-1]}"
               local last_dns_servers_array=(${DNS_SERVERS_MAP[$last_dns_server_name]})
               local last_dns_server_element_count=${#last_dns_servers_array[@]}
               [ "$last_dns_server_element_count" -eq 1 ] && \
-                printf "  option server 'dns_server_%s'\n" "$last_dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
-                printf "  option server 'dns_server_%s_1'\n" "$last_dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+                template+="
+  option server 'dns_server_${last_dns_server_name}'" || \
+                template+="
+  option server 'dns_server_${last_dns_server_name}_1'"
             fi
           fi
         fi
 
+        printf "%s\n" "$template" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         [ "$config_type" = "outbound" ] && printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       fi
 
@@ -364,38 +387,18 @@ gen_rules_config() {
   done
 }
 
-gen_custom_nodes_config() {
+gen_routing_nodes_config() {
 
-  gen_unified_outbound_nodes
-
-  for key in ${RULESET_MAP_KEY_ORDER_ARRAY[@]}; do
-    # Don't have to create custom nodes for ad and privacy-focused rulesets.
-    if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then 
+  for key in ${RULESET_CONFIG_KEY_ORDER_ARRAY[@]}; do
+    if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then
       continue
     fi
 
-    printf "config node 'node_%s_outbound_nodes'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option label '%s outbound node'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option interrupt_exist_connections '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-  done
-}
-
-config_map() {
-  local -n array_ref=$1
-  local -n map_ref=$2
-  local -n map_order_ref=$3
-  local entry
-
-  for entry in "${array_ref[@]}"; do
-    if [[ "$entry" == *"|"* ]]; then
-      local key="${entry%%|*}"
-      local values="${entry#*|}"
-      map_order_ref+=("$key")
-      IFS=$'\n' read -r -d '' -a urls <<<"$values"
-      [ "${#urls[@]}" -le 0 ] && echo "WARN: The tag [${key}] is invalid and will be skipped..." && continue
-      map_ref["$key"]="${urls[*]}"
-    fi
+    printf "config routing_node 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option label routing_node_%s\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
   done
 }
 
@@ -425,7 +428,6 @@ gen_homeproxy_config() {
   echo -n "------ Configuring routing nodes..."
   gen_routing_nodes_config
   echo "done!"
-  
   echo ""
 
   local lan_ipv4_addr
@@ -446,7 +448,7 @@ declare -a RULESET_CONFIG_KEY_ORDER_ARRAY
 AUTO_GEN_DEFAULT_NODES=1
 AUTO_GEN_OTHER_NODES=2
 
-intro() {
+entrance() {
   if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]] || \
     [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
     echo "ERROR: Error(s) detected in rules.sh. The script will now exit!"
@@ -474,6 +476,5 @@ intro() {
   echo ""
 }
 
-intro
-
+entrance
 gen_homeproxy_config
