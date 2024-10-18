@@ -39,7 +39,7 @@ Referenced configuration file: `rules_based_on_nodes.sh`
 
 ## DNS Servers
 
-![DNS Servers](https://s2.loli.net/2024/10/19/5Aypktzw4FSTMfn.png)
+![DNS Servers.png](https://s2.loli.net/2024/10/19/SaGLZMum6CHFXKx.png)
 
 
 
