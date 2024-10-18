@@ -69,32 +69,34 @@ RULESET_URLS=(
 
   "direct_out|https://cn.srs"
 
-  "proxy_01|
+  "proxy_server_01|
   https://google.srs
   https://youtube.srs"
 
-  "proxy_02|https://telegram.srs
+  "proxy_server_02|
+  https://telegram.srs
   https://telegramip.srs"
 
   "proxy_03|https://discord.srs"
-
-
 )
 
+
+
+# "Tag name|URL(s)". The format should align with the RULESET_URLS array.
+# URL(s) can use any of the following protocols: UDP, TCP, DoT, DoH, or RCode.
 DNS_SERVERS=(
-  # Support UDP, TCP, DoT, DoH and RCode.
+  #
+  # Please refer to the configuration within the 'rules_based_on_rulesets.sh' file.
+
+  "proxy_server_01_OpenDNS|https://doh.opendns.com/dns-query"
+  "proxy_server_02_OpenDNS|https://doh.opendns.com/dns-query"
+  "proxy_server_03_OpenDNS|https://doh.opendns.com/dns-query"
 
 
-  "OpenDNS_proxy_01|https://doh.opendns.com/dns-query"
-  "OpenDNS_proxy_02|https://doh.opendns.com/dns-query"
-  "OpenDNS_proxy_03|https://doh.opendns.com/dns-query"
+  "backup_server_01|https://223.5.5.5/dns-query"
 
-  "google|https://8.8.8.8/dns-query
-  8.8.8.8
-  tls://dns.google"
-
-  "aliyun|223.5.5.5
-  2400:3200:baba::1"
-
-  "reject_dns|rcode://refused"
+  "backup_server_02|
+  223.5.5.5
+  2400:3200:baba::1
+  rcode://refused"
 )

@@ -76,7 +76,9 @@ RULESET_URLS=(
   "HK_02|https://telegram.srs
   https://telegramip.srs"
 
-  "SG_01|https://discord.srs"
+  "SG_IPv4|https://discord.srs"
+
+  "SG_IPv6|https://discord.srs"
 
   "JP_01|
   https://geosite-twitter.srs
@@ -88,21 +90,26 @@ RULESET_URLS=(
 
 )
 
+
+# "Tag name|URL(s)". The format should align with the RULESET_URLS array.
+# URL(s) can use any of the following protocols: UDP, TCP, DoT, DoH, or RCode.
 DNS_SERVERS=(
-  # Support UDP, TCP, DoT, DoH and RCode.
+  #
+  # Please refer to the configuration within the 'rules_based_on_rulesets.sh' file.
 
 
-  "OpenDNS_HK|https://doh.opendns.com/dns-query"
-  "OpenDNS_SG|https://doh.opendns.com/dns-query"
-  "OpenDNS_JP|https://doh.opendns.com/dns-query"
-  "OpenDNS_MY|https://doh.opendns.com/dns-query"
+  "HK_01_cf_DoH|https://1.1.1.1/dns-query"
+  "HK_02_cf_DoH|https://1.1.1.1/dns-query"
+  "SG_IPv4_GoogleDoH|https://8.8.8.8/dns-query"
+  "SG_IPv6_GoogleDoT|tls://dns.google"
 
-  "google|https://8.8.8.8/dns-query
-  8.8.8.8
-  tls://dns.google"
+  "JP_01|https://doh.opendns.com/dns-query"
+  "MY_01|https://doh.opendns.com/dns-query"
 
-  "aliyun|223.5.5.5
-  2400:3200:baba::1"
+  # Other available backup DNS servers...
+  "backup_server_01|https://223.5.5.5/dns-query"
 
-  "reject_dns|rcode://refused"
+  "backup_server_02|
+  2400:3200:baba::1
+  rcode://refused"
 )
