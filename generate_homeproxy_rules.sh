@@ -15,6 +15,10 @@ gen_random_secret() {
   tr -dc 'a-zA-Z0-9' </dev/urandom | head -c $1
 }
 
+to_upper() {
+	echo -e "$1" | tr "[a-z]" "[A-Z]"
+}
+
 download_original_config() {
   echo -n "------ Downloading the original homeproxy file from GitHub......"
   local download_count=0
@@ -40,23 +44,19 @@ download_original_config() {
   echo "done!"
 }
 
-gen_dns_server_config() {
-  local server_index=0
-  for dns_key in "${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[@]}"; do
-    local server_url_count=1
-    for server_url in ${DNS_SERVERS_MAP[$dns_key]}; do
-      local dns_server_name="dns_server_${dns_key}_${server_url_count}"
-      printf "config dns_server '%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option label '%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option address '%s'\n" "$server_url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option address_resolver 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option address_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option resolve_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option outbound '%s'\n" "$DEFAULT_GLOBAL_OUTBOUND" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option enabled '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      ((server_index++))
-      ((server_url_count++))
-    done
+match_node() {
+  local -n array_to_match=$1
+  local key=$2
+  local tmp_key_to_match
+  properly_matched_node_name=""
+
+  for tmp_key_to_match in "${array_to_match[@]}"; do
+    local t_key=$(to_upper "$key")
+    local t_key_to_match=$(to_upper "$tmp_key_to_match")
+    if [[ "$t_key" == "$t_key_to_match"* ]]; then
+      properly_matched_node_name="$tmp_key_to_match"
+      break
+    fi
   done
 }
 
@@ -120,7 +120,7 @@ EOF
 
     set $UCI_GLOBAL_CONFIG.dns=$UCI_GLOBAL_CONFIG
     set $UCI_GLOBAL_CONFIG.dns.dns_strategy='ipv4_only'
-    set $UCI_GLOBAL_CONFIG.dns.default_server=$FIRST_DNS_SERVER
+    set $UCI_GLOBAL_CONFIG.dns.default_server='default-dns'
     set $UCI_GLOBAL_CONFIG.dns.default_strategy='ipv4_only'
     set $UCI_GLOBAL_CONFIG.dns.disable_cache='1'
 
@@ -138,26 +138,26 @@ EOF
     set $UCI_GLOBAL_CONFIG.route_clash_global.clash_mode='global'
     set $UCI_GLOBAL_CONFIG.route_clash_global.outbound=$DEFAULT_CLASH_DIRECT_OUTBOUND
 
-    set $UCI_GLOBAL_CONFIG.dns_nodes_any='dns_rule'
-    set $UCI_GLOBAL_CONFIG.dns_nodes_any.label='dns_nodes_any'
-    set $UCI_GLOBAL_CONFIG.dns_nodes_any.enabled='1'
-    set $UCI_GLOBAL_CONFIG.dns_nodes_any.mode='default'
-    set $UCI_GLOBAL_CONFIG.dns_nodes_any.server='default-dns'
-    add_list $UCI_GLOBAL_CONFIG.dns_nodes_any.outbound='any-out'
+    set $UCI_GLOBAL_CONFIG.dns_rule_any='dns_rule'
+    set $UCI_GLOBAL_CONFIG.dns_rule_any.label='dns_rule_any'
+    set $UCI_GLOBAL_CONFIG.dns_rule_any.enabled='1'
+    set $UCI_GLOBAL_CONFIG.dns_rule_any.mode='default'
+    set $UCI_GLOBAL_CONFIG.dns_rule_any.server='default-dns'
+    add_list $UCI_GLOBAL_CONFIG.dns_rule_any.outbound='any-out'
 
-    set $UCI_GLOBAL_CONFIG.dns_clash_direct='dns_rule'
-    set $UCI_GLOBAL_CONFIG.dns_clash_direct.label='dns_clash_direct'
-    set $UCI_GLOBAL_CONFIG.dns_clash_direct.enabled='1'
-    set $UCI_GLOBAL_CONFIG.dns_clash_direct.mode='default'
-    set $UCI_GLOBAL_CONFIG.dns_clash_direct.clash_mode='direct'
-    set $UCI_GLOBAL_CONFIG.dns_clash_direct.server='default-dns'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct='dns_rule'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.label='dns_rule_clash_direct'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.enabled='1'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.mode='default'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.clash_mode='direct'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.server='default-dns'
 
-    set $UCI_GLOBAL_CONFIG.dns_clash_global='dns_rule'
-    set $UCI_GLOBAL_CONFIG.dns_clash_global.label='dns_clash_global'
-    set $UCI_GLOBAL_CONFIG.dns_clash_global.enabled='1'
-    set $UCI_GLOBAL_CONFIG.dns_clash_global.mode='default'
-    set $UCI_GLOBAL_CONFIG.dns_clash_global.clash_mode='global'
-    set $UCI_GLOBAL_CONFIG.dns_clash_global.server=$FIRST_DNS_SERVER
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global='dns_rule'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.label='dns_rule_clash_global'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.enabled='1'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.mode='default'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.clash_mode='global'
+    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.server='default-dns'
 EOF
 )
   $(uci commit $UCI_GLOBAL_CONFIG)
@@ -244,6 +244,40 @@ gen_rule_sets_config() {
   done
 }
 
+gen_dns_server_config() {
+
+  for dns_key in "${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[@]}"; do
+    local server_url_count=1
+    local dns_servers_array=(${DNS_SERVERS_MAP[$dns_key]})
+    local dns_server_element_count=${#dns_servers_array[@]}
+
+    for server_url in ${DNS_SERVERS_MAP[$dns_key]}; do
+      local dns_server_name
+      if [ "$dns_server_element_count" -eq 1 ]; then
+        dns_server_name="${dns_key}"
+      else
+        dns_server_name="${dns_key}_${server_url_count}"
+      fi
+
+      printf "config dns_server 'dns_server_%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option label 'dns_server_%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option address '%s'\n" "$server_url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option address_resolver 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option address_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option resolve_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+
+      match_node RULESET_CONFIG_KEY_ORDER_ARRAY "$dns_key"
+      if [ -n "$properly_matched_node_name" ]; then
+        printf "  option outbound '%s'\n\n" "routing_node_$properly_matched_node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      else
+        printf "  option outbound '%s'\n\n" "$DEFAULT_GLOBAL_OUTBOUND" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      fi
+      ((server_url_count++))
+    done
+  done
+}
+
 gen_routing_nodes_config() {
 
   for key in ${RULESET_CONFIG_KEY_ORDER_ARRAY[@]}; do
@@ -254,7 +288,6 @@ gen_routing_nodes_config() {
     printf "config routing_node 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option label routing_node_%s\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
   done
@@ -283,20 +316,41 @@ gen_rules_config() {
           printf "  option outbound 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
           printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       else
+
         if [ "$config_type" = "dns" ]; then # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
           local rulesets_count=0
           for value in "${config_values[@]}"; do
              grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value" && ((rulesets_count++))
           done
           [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
-        fi
 
-        [ "$key" = "direct_out" ] && [ "$config_type" = "outbound_node" ] && continue
+          local dns_key_array=("$key")
+          local matched_dns_server_name=""
+          for tmp_dns_server_name in "${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[@]}"; do
+            properly_matched_node_name=""
+            match_node dns_key_array "$tmp_dns_server_name"
+            [ -n "$properly_matched_node_name" ] && matched_dns_server_name="$tmp_dns_server_name" && break
+          done
+        fi
 
         printf "config %s '%s_%s'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option label %s_%s\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option server '%s'\n" "$FIRST_DNS_SERVER" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+
+        if [ "$config_type" = "dns" ]; then
+          if [[ -n "$matched_dns_server_name" ]]; then
+            printf "  option server '%s'\n" "dns_server_$matched_dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+          else
+            if [[ "$key" != "reject_out" && "$key" != "direct_out" ]]; then
+              local last_dns_server_name="${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[-1]}"
+              local last_dns_servers_array=(${DNS_SERVERS_MAP[$last_dns_server_name]})
+              local last_dns_server_element_count=${#last_dns_servers_array[@]}
+              [ "$last_dns_server_element_count" -eq 1 ] && \
+                printf "  option server 'dns_server_%s'\n" "$last_dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
+                printf "  option server 'dns_server_%s_1'\n" "$last_dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+            fi
+          fi
+        fi
 
         [ "$config_type" = "outbound" ] && printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       fi
@@ -349,13 +403,7 @@ gen_homeproxy_config() {
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER_ARRAY
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER_ARRAY
 
-  FIRST_DNS_SERVER="dns_server_${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[0]}_1"
-
   gen_public_config
-
-  echo -n "------ Configuring DNS servers..."
-  gen_dns_server_config
-  echo "done!"
 
   echo -n "------ Configuring custom outbound nodes..."
   gen_custom_nodes_config
@@ -363,6 +411,10 @@ gen_homeproxy_config() {
 
   echo -n "------ Configuring rule sets..."
   gen_rule_sets_config
+  echo "done!"
+
+  echo -n "------ Configuring DNS servers..."
+  gen_dns_server_config
   echo "done!"
 
   echo -n "------ Configuring DNS rules and routing rules..."

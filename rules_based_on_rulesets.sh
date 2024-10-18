@@ -67,55 +67,74 @@ RULESET_URLS=(
 
   "reject_out|/etc/homeproxy/ruleset/adblockdns.srs"
 
-  "direct_out|https://cn.srs"
+  "direct_out|
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/cn.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/cn.srs"
 
-  "bilibili|https://bilibili.srs"
+  "google_ruleset01|
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google.srs
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/google-cn.srs"
+  
+  "google_ruleset02|
+  https://github.com/KaringX/karing-ruleset/raw/sing/geo/geosite/google-trust-services@cn.srs"
 
-  "apple|https://apple.srs"
-
-  "microsoft|https://microsoft.srs
-  https://microsoft-all.srs"
-
-  "google|
-  https://google.srs
-  https://youtube.srs"
-
-  "telegram|https://telegram.srs
-  https://telegramip.srs"
-
-  "discord|https://discord.srs"
-
-  "twitch|
-  https://geosite-twitch.srs
-  https://geosite-amazon.srs
-  https://geosite-amazon@cn.srs
-  https://geosite-amazontrust.srs"
-
-  "twitter|
-  https://geosite-twitter.srs
-  https://x.srs
-  https://twitter.srs"
-
-  "ai|https://geosite-openai.srs
-  https://bing.srs"
-
-  "tiktok|https://tiktok.srs"
+  "AI|
+  https://github.com/SagerNet/sing-geosite/raw/rule-set/geosite-openai.srs
+  https://github.com/SagerNet/sing-geosite/raw/rule-set/geosite-bing.srs
+  https://github.com/KaringX/karing-ruleset/raw/sing/geo/geoip/ai.srs"
+  
+  "telegram|
+  https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/telegram.srs"
+  
+  "my_cn_direct|
+  /etc/homeproxy/ruleset/MyDirect.json"
 )
 
+
+
+# "Tag name|URL(s)". The format should align with the RULESET_URLS array.
+# URL(s) can use any of the following protocols: UDP, TCP, DoT, DoH, or RCode.
 DNS_SERVERS=(
-  # Support UDP, TCP, DoT, DoH and RCode.
+  #
+  # Tips 推荐写法( 可选 Optional )：
+  #
+  #    RULESET_URLS(
+  #       # 格式："标签名|URL-s"，不允许直接使用保留名 'direct_out' 和 'reject_out'
+  #
+  #       "HongKong_01|URL"
+  #       "HK_02|URL"
+  #       "USA_California|URL"
+  #       "USA_Utah|URL"
+  #    )
+  #
+  #    DNS_SERVERS(
+  #       # 格式："RULESET_URLS标签名_后缀(_后缀可选)|URL"，不允许直接使用保留名 'direct_out' 和 'reject_out'
+  #
+  #       "HongKong_01_Cloudflare|URL"
+  #       "HK_02_Google|URL"
+  #       "USA_California_OpenDNS|URL"
+  #       "USA_Utah_OpenDNS|URL"
+  #    )
+  # 
+  # 要求：
+  #   1.RULESET_URLS 中的 [标签名] 作为 DNS_SERVERS 中标签名的 [前缀]；
+  #   2.RULESET_URLS 中的条目顺序不需要与 DNS_SERVERS 保持一致，但 DNS_SERVERS 中的标签名前缀部分需要和 RULESET_URLS 中的标签名一一对应
+  # 以上写法影响范围：DNS Servers & DNS Rules，具体效果请到 wiki 查看.
+  #
+  #
+  # 如果你不想使用上述功能，则可以定义任意数量、任意标签名(需要符合命名规范)的DNS服务器。
+  # 脚本会在 DNS规则(DNS Rules) 中为所有规则集标签选取 [最后一个标签下的第一条URL] 作为默认服务器。
 
+  "google_ruleset01|https://8.8.8.8/dns-query"
+  "google_ruleset02_google_DoT|tls://dns.google"
+  "AI_cf|https://cloudflare-dns.com/dns-query"
+  "telegram_OpenDNS_DoT|tls://dns.umbrella.com"
+  "my_cn_direct_AliyunUDP|223.5.5.5"
 
-  "OpenDNS_HK|https://doh.opendns.com/dns-query"
-  "OpenDNS_SG|https://doh.opendns.com/dns-query"
-  "OpenDNS_US|https://doh.opendns.com/dns-query"
+  # Other available backup DNS servers...
+  "backup_server_01|https://223.5.5.5/dns-query"
 
-  "google|https://8.8.8.8/dns-query
-  8.8.8.8
-  tls://dns.google"
-
-  "aliyun|223.5.5.5
-  2400:3200:baba::1"
-
-  "reject_dns|rcode://refused"
+  "backup_server_02|
+  2400:3200:baba::1
+  rcode://refused"
 )

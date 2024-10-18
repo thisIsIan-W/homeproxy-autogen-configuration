@@ -3,3 +3,62 @@
 
 [User Manual](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/A-Simpler-way-to-Generate-ImmortalWRT-(OpenWRT)-Homeproxy-Configuration).
 
+
+
+
+
+以下图片内容参考的配置文件是：`rules_based_on_nodes.sh`
+
+Referenced configuration file: `rules_based_on_nodes.sh`
+
+
+
+## rules.sh
+
+![rules.sh](https://s2.loli.net/2024/10/19/XNKv1b4Dhz7kHRM.png)
+
+
+
+## Run Script
+
+![Run Script](https://s2.loli.net/2024/10/19/R2gmiNrdIL8zxlb.png)
+
+
+
+## Routing Nodes
+
+![Routing Nodes](https://s2.loli.net/2024/10/19/DveHslM1YCfJNum.png)
+
+
+
+## Routing Rules
+
+![Routing Rules](https://s2.loli.net/2024/10/19/FBlRiU8WgLDhIzy.png)
+
+
+
+## DNS Servers
+
+![DNS Servers](https://s2.loli.net/2024/10/19/5Aypktzw4FSTMfn.png)
+
+
+
+## DNS Rules
+
+![DNS Rules](https://s2.loli.net/2024/10/19/5Aypktzw4FSTMfn.png)
+
+
+
+
+
+## Routing Rule Details
+
+![Routing Rule Details](https://s2.loli.net/2024/10/19/4TOpo2LICiFlnb7.png)
+
+
+
+
+
+## DNS Rules Details
+
+![DNS Rules Details](https://s2.loli.net/2024/10/19/B6xJM3mEUTXZ7gi.png)
