@@ -10,9 +10,10 @@
 # 使用方式：
 # 1. 上传脚本到你的设备上，目录随意；
 # 2. 类 OpenWRT 系统可在 '系统(System) -> 启动项(Startup) -> 本地启动项(Local Startup)' 功能中添加以下代码(注意 & 符号不可删除！)：
-#    bash /your_path/adblock_rules_update.sh &
-# 3. 你也可以在每次系统重启后直接在控制台中输入 bash /your_path/adblock_rules_update.sh & 来启动此脚本
-# 4. 除规URL(s)外，其余内容均不需要手动修改，除非你了解自己在做什么
+#    bash /your_path/auto_configure_adblock_rules.sh &
+# 3. 你也可以在每次系统重启后直接在控制台中输入 bash /your_path/auto_configure_adblock_rules.sh & 并回车来启动此脚本
+# 4. URLS 中定义原始规则集链接。如果无法正常下载，可以在每条链接前加入 "https://ghp.ci/" 前缀
+# 5. INTERVAL 值为每次更新、合并并导出规则集的时间间隔，默认8小时(单位秒)
 #
 #
 # ************************************************************************************************
@@ -20,29 +21,26 @@
 
 # Define your rule URL(s).
 URLS=(
-  "https://ghp.ci/https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_2_Base/filter.txt"
-  "https://ghp.ci/https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_224_Chinese/filter.txt"
+  "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_2_Base/filter.txt"
+  "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_224_Chinese/filter.txt"
   # And more...
 )
-
+# Time interval indicating how often the script should execute. By default, it's set to 8 hours(seconds).
+INTERVAL=28800
 # Directory for downloaded files.
 DEST_DIR="/etc/homeproxy/ruleset"
 # The output file name for the combined rule files.
 SRS_OUTPUT_FILE="${DEST_DIR}/adblockdns.srs"
-# Time interval indicating how often the script should execute. By default, it's set to 8 hours(seconds).
-INTERVAL=28800
-# INTERVAL=$((60*60*8))
-# Time limit for each execution, with a default of 10 minutes(seconds).
-TIME_LIMIT_FOR_EXECUTION=600
-
 
 # 
-# Start ------ DO NOT change it or you are on your own!
+# Start ------ DO NOT change it, or you are on your own!
 #
 TXT_TEMP_OUTPUT_FILE="${DEST_DIR}/adblock.txt"
 SRS_TMP_OUTPUT_FILE="${DEST_DIR}/adblockdns_tmp.srs"
+# Time limit for each execution, with a default of 10 minutes(seconds).
+TIME_LIMIT_FOR_EXECUTION=600
 #
-# End ------ DO NOT change it or you are on your own!
+# End ------ DO NOT change it, or you are on your own!
 # 
 
 
