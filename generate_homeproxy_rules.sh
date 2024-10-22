@@ -247,11 +247,11 @@ gen_rule_sets_config() {
       # Note that the character '-' should not be placed in the middle
       $(echo "$rule_name" | grep -q '[-.*#@!&]') && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
 
-      if ( grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" )||
-          ( grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name" ); then
-        rule_name="geoip_$rule_name"
-      elif ( grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name" ); then
-        rule_name="geosite_$rule_name"
+      if { grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name"; } ||
+         { grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name"; }; then
+          rule_name="geoip_$rule_name"
+      elif grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name"; then
+          rule_name="geosite_$rule_name"
       fi
 
       [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
