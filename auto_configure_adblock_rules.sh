@@ -30,8 +30,7 @@ URLS=(
   # And more...
 )
 # Time interval indicating how often the script should execute. By default, it's set to 8 hours(Unit: seconds).
-# INTERVAL=28800
-INTERVAL=30
+INTERVAL=28800
 # Specify the directory in which the rule-set file will be downloaded to the system.
 DEST_DIR="/etc/homeproxy/ruleset"
 # The output file name for the combined rule-set files.
