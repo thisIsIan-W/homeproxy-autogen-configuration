@@ -8,8 +8,6 @@ MIRROR_PREFIX_URL="https://ghp.ci"
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
 
-# For Routing Rules -> route_clash_direct and DNS Rules -> dns_clash_direct using purpose. DO NOT change it!
-DEFAULT_CLASH_DIRECT_OUTBOUND="routing_node_direct_out"
 
 gen_random_secret() {
   tr -dc 'a-zA-Z0-9' </dev/urandom | head -c $1
@@ -172,14 +170,14 @@ EOF
     set $UCI_GLOBAL_CONFIG.route_clash_direct.enabled='1'
     set $UCI_GLOBAL_CONFIG.route_clash_direct.mode='default'
     set $UCI_GLOBAL_CONFIG.route_clash_direct.clash_mode='direct'
-    set $UCI_GLOBAL_CONFIG.route_clash_direct.outbound=$DEFAULT_CLASH_DIRECT_OUTBOUND
+    set $UCI_GLOBAL_CONFIG.route_clash_direct.outbound='direct-out'
 
     set $UCI_GLOBAL_CONFIG.route_clash_global='routing_rule'
     set $UCI_GLOBAL_CONFIG.route_clash_global.label='route_clash_global'
     set $UCI_GLOBAL_CONFIG.route_clash_global.enabled='1'
     set $UCI_GLOBAL_CONFIG.route_clash_global.mode='default'
     set $UCI_GLOBAL_CONFIG.route_clash_global.clash_mode='global'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.outbound=$DEFAULT_CLASH_DIRECT_OUTBOUND
+    set $UCI_GLOBAL_CONFIG.route_clash_global.outbound='direct-out'
 
     set $UCI_GLOBAL_CONFIG.dns_rule_any='dns_rule'
     set $UCI_GLOBAL_CONFIG.dns_rule_any.label='dns_rule_any'
