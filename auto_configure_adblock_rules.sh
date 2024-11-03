@@ -10,9 +10,15 @@
 # 使用方式：
 # 1. 上传脚本到你的设备上，目录随意，然后 'chmod +x auto_configure_adblock_rules.sh'；
 # 2. 启动 sing-box 服务；
-# 3. 类 OpenWRT 系统可在 '系统(System) -> 启动项(Startup) -> 本地启动项(Local Startup)' 功能中添加以下代码(注意 & 符号不可删除！)：
+# 3. OpenWRT 系统可在 '系统(System) -> 启动项(Startup) -> 本地启动项(Local Startup)' 功能中添加以下代码
+#    (注意 & 符号不可删除，且修改了脚本内容后需要重启系统！)：
 #    bash /your_path/auto_configure_adblock_rules.sh &
-# 4. 你也可以在每次系统重启后直接在控制台中输入 bash /your_path/auto_configure_adblock_rules.sh & 并回车来启动此脚本
+#
+#    或者
+#
+#    你也可以在每次系统重启后直接在控制台中输入 'bash /your_path/auto_configure_adblock_rules.sh &' 并回车来启动此脚本
+#    (修改了脚本内容后需要 kill 已有进程并重新执行脚本，或直接重启)
+#
 # 5. URLS 中定义原始规则集链接。如果无法正常下载，可以在每条链接前加入 "https://ghp.ci/" 前缀
 # 6. INTERVAL 值为每次更新、合并并导出规则集的时间间隔，默认8小时(单位秒)
 #
