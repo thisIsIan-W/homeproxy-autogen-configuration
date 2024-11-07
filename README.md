@@ -7,7 +7,7 @@
 
 以下图片内容参考的配置文件是：`rules_based_on_nodes.sh`
 
-The configuration file referenced by the following images content is: `rules_based_on_nodes.sh`
+The configuration file referenced by the content in the images below is: `rules_based_on_nodes.sh`
 
 
 
