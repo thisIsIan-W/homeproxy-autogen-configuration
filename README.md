@@ -1,5 +1,5 @@
 # homeproxy-autogen-configuration
-[Wiki](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E).
+参考 ----> [Wiki](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC-Wiki) .
 
 <br/>
 
@@ -7,7 +7,7 @@
 
 以下图片内容参考的配置文件是：`rules_based_on_nodes.sh`
 
-Referenced configuration file: `rules_based_on_nodes.sh`
+The configuration file referenced by the following image content is: `rules_based_on_nodes.sh`
 
 
 

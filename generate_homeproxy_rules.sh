@@ -469,7 +469,7 @@ entrance() {
   echo ""
   echo ""
   echo "Do you want to generate the 'Auto_Select' node? (1 for Yes, 2 for No; please specify the remaining nodes separately in the configuration file.)"
-  read -p "Enter your choice and press Enter: " AUTO_GEN_DEFAULT_NODES
+  read -p "Type in your choice and press Enter: " AUTO_GEN_DEFAULT_NODES
   AUTO_GEN_DEFAULT_NODES=$( [ "$AUTO_GEN_DEFAULT_NODES" = "1" ] && echo "$AUTO_GEN_DEFAULT_NODES" || echo "2" )
   echo ""
 }
