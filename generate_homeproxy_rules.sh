@@ -92,6 +92,17 @@ subscribe() {
   echo "done! Refresh your browser and check the homeproxy logs to see if any errors occurred during the subscription process."
 }
 
+get_last_dns_server() {
+  local last_dns_server_name="${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[-1]}"
+  local last_dns_servers_array=(${DNS_SERVERS_MAP[$last_dns_server_name]})
+  local last_dns_server_element_count=${#last_dns_servers_array[@]}
+  if [ "$last_dns_server_element_count" -eq 1 ]; then
+    echo -e "$last_dns_server_name"
+  else
+    echo -e "${last_dns_server_name}_1"
+  fi
+}
+
 gen_public_config() {
   
   download_original_config_file
@@ -122,9 +133,9 @@ gen_public_config() {
 
     set $UCI_GLOBAL_CONFIG.dns=$UCI_GLOBAL_CONFIG
     set $UCI_GLOBAL_CONFIG.dns.dns_strategy='ipv4_only'
-    set $UCI_GLOBAL_CONFIG.dns.default_server='default-dns'
     set $UCI_GLOBAL_CONFIG.dns.default_strategy='ipv4_only'
     set $UCI_GLOBAL_CONFIG.dns.disable_cache='1'
+    set $UCI_GLOBAL_CONFIG.dns.default_server=dns_server_$(get_last_dns_server)
 
     set $UCI_GLOBAL_CONFIG.dns_rule_any='dns_rule'
     set $UCI_GLOBAL_CONFIG.dns_rule_any.label='dns_rule_any'
@@ -132,9 +143,9 @@ gen_public_config() {
     set $UCI_GLOBAL_CONFIG.dns_rule_any.mode='default'
     set $UCI_GLOBAL_CONFIG.dns_rule_any.server='default-dns'
     add_list $UCI_GLOBAL_CONFIG.dns_rule_any.outbound='any-out'
-
 EOF
 )
+
   $(uci commit $UCI_GLOBAL_CONFIG)
   echo "done!"
 }
@@ -256,14 +267,9 @@ match_server_for_dns_rule() {
   fi
   
   if [ "$2" != "reject_out" ]; then
-    local last_dns_server_name="${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[-1]}"
-    local last_dns_servers_array=(${DNS_SERVERS_MAP[$last_dns_server_name]})
-    local last_dns_server_element_count=${#last_dns_servers_array[@]}
-    [ "$last_dns_server_element_count" -eq 1 ] && 
-      template+="
-  option server 'dns_server_${last_dns_server_name}'" || 
-      template+="
-  option server 'dns_server_${last_dns_server_name}_1'"
+    local last_dns_server=$(get_last_dns_server)
+    template+="
+  option server 'dns_server_$last_dns_server'"
   fi
   echo -e "$template"
 }
@@ -360,7 +366,7 @@ gen_homeproxy_config() {
   gen_routing_nodes_config
   echo "done!"
   echo ""
-
+  
   local lan_ipv4_addr
   lan_ipv4_addr=$(ubus call network.interface.lan status | grep '\"address\"\: \"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' || true)
   [ -n "$lan_ipv4_addr" ] && \

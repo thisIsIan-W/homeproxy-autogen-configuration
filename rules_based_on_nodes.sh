@@ -8,25 +8,14 @@
 # ****************************************************************************************************
 
 
-UNIFIED_OUTBOUND_NODES=(
-# Unified node settings for multiple regions and nodes.
-#
-# All node names must be unique, and each name may include only uppercase and lowercase English letters, numbers, and underscores ("_").
-#
-# For users with multiple regions and nodes servers(such as airport-proxy services),
-# this feature allows for unified regional outbound node configuration. The nodes defined here will be generated in the "Node Settings" section in the specified order,
-# with the highest priority (excluding the Auto_Select node).
-#
-# If you do not need this feature, you can delete the whole UNIFIED_OUTBOUND_NODES(xxx) line.
+SUBSCRIPTION_URLS=(
+  # Define your subscription url(s) here.
+  # The format should be: "URL"
 
-  # "SG"
-  # "US_01"
-  # "US_02"
-  # "JP_01"
-  # "CA"
+  "https://abc.xyz"
+  "https://123.abc"
 
 )
-
 
 
 RULESET_URLS=(
@@ -65,8 +54,6 @@ RULESET_URLS=(
 )
 
 
-# "Tag name|URL(s)". The format should align with the RULESET_URLS array.
-# URL(s) can use any of the following protocols: UDP, TCP, DoT, DoH, or RCode.
 DNS_SERVERS=(
   #
   # Tips 推荐写法( 可选 Optional )：
@@ -91,14 +78,9 @@ DNS_SERVERS=(
   #       "USA_Utah_OpenDNS|URL"
   #    )
   # 
-  # 要求：
-  #   1.RULESET_URLS 中的 [标签名] 作为 DNS_SERVERS 中标签名的 [前缀]；
-  #   2.RULESET_URLS 中的条目顺序不需要与 DNS_SERVERS 保持一致，但 DNS_SERVERS 中的标签名前缀部分需要和 RULESET_URLS 中的标签名一一对应
-  # 以上写法影响范围：DNS Servers & DNS Rules，具体效果请到 wiki 查看.
-  #
   #
   # 如果你不想使用上述功能，则可以定义任意数量、任意标签名(需要符合命名规范)的DNS服务器。
-  # 脚本会在 DNS规则(DNS Rules) 中为所有规则集标签选取 [最后一个标签下的第一条URL] 作为默认服务器。
+  # 脚本会在 DNS规则(DNS Rules) 中为所有规则集标签选取 [最后一个标签下的第一条URL] 作为默认服务器(当前示例为 2400:3200:baba::1)。
 
 
   "HK_01_cf_DoH|https://1.1.1.1/dns-query"

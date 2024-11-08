@@ -1,62 +1,17 @@
 # homeproxy-autogen-configuration
-参考 ----> [Wiki](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC-Wiki) .
+~~参考 ----> [Wiki(Deprecated)](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC-Wiki(%E5%B7%B2%E8%BF%87%E6%97%B6-Deprecated)) .~~
+
+由于原脚本依赖的上游 Homeproxy 仓库停更(sing-box 内核版本呢停留在 1.10.0-beta.3)，本仓库已不再更新老版本脚本。
+
+如果你希望继续使用它，请切换分支到 deprecated 并参考上方 wiki !
+
+
 
 <br/>
 
 <br/>
 
-以下图片内容参考的配置文件是：`rules_based_on_nodes.sh`
+参考 ----> [Wiki]() .
 
-The configuration file referenced by the content in the images below is: `rules_based_on_nodes.sh`
+main 分支脚本现在只支持从 ImmortalWRT 应用仓库下载的 Homeproxy 插件。
 
-
-
-## rules.sh
-
-![rules.sh](https://s2.loli.net/2024/10/19/XNKv1b4Dhz7kHRM.png)
-
-
-
-## Run Script
-
-![Run Script](https://s2.loli.net/2024/10/19/R2gmiNrdIL8zxlb.png)
-
-
-
-## Routing Nodes
-
-![Routing Nodes](https://s2.loli.net/2024/10/19/DveHslM1YCfJNum.png)
-
-
-
-## Routing Rules
-
-![Routing Rules](https://s2.loli.net/2024/10/19/FBlRiU8WgLDhIzy.png)
-
-
-
-## DNS Servers
-
-![DNS Servers.png](https://s2.loli.net/2024/10/19/SaGLZMum6CHFXKx.png)
-
-
-
-## DNS Rules
-
-![DNS Rules](https://s2.loli.net/2024/10/19/5Aypktzw4FSTMfn.png)
-
-
-
-
-
-## Routing Rule Details
-
-![Routing Rule Details](https://s2.loli.net/2024/10/19/4TOpo2LICiFlnb7.png)
-
-
-
-
-
-## DNS Rules Details
-
-![DNS Rules Details](https://s2.loli.net/2024/10/19/B6xJM3mEUTXZ7gi.png)
