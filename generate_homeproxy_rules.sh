@@ -285,39 +285,49 @@ gen_rules_config() {
   for key in ${RULESET_CONFIG_KEY_ORDER_ARRAY[@]}; do
     for value in ${RULESET_CONFIG_MAP[$key]}; do
       IFS=',' read -ra config_values <<<"${RULESET_CONFIG_MAP["$key"]}"
-      if [ "$key" = "reject_out" ]; then
-        printf "config %s '%s_%s_blocked'\n" "$keyword" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option label '%s_%s_blocked'\n" "$keyword" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option mode 'default'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
-        [ "$config_type" = "outbound" ] && \
-          printf "  option outbound 'block-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
-          printf "  option server 'block-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      else
-
-        local template="config ${keyword} '${keyword}_${key}'
+      local template="config ${keyword} '${keyword}_${key}'
   option label '${keyword}_${key}'
-  option enabled '1'"
+  option enabled '1'
+  option mode 'default'"
 
-        if [ "$config_type" = "dns" ]; then
-          local rulesets_count=0
-          for value in "${config_values[@]}"; do
-             grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value" && ((rulesets_count++))
-          done
-          # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
-          [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
-          
-          template=$(match_server_for_dns_rule "$template" "$key")
-        fi
-
-        printf "%s\n" "$template" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        [ "$config_type" = "outbound" ] && {
-          [ "$key" = "direct_out" ] && printf "  option outbound 'direct-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" ||
-          printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        }
-
+      if [ "$config_type" = "outbound" ]; then
+        template+="
+  option source_ip_is_private '0'
+  option ip_is_private '0'
+  option rule_set_ipcidr_match_source '0'"
+        [ "$key" = "direct_out" ] && 
+          template+="
+  option outbound 'direct-out'" ||
+          template+="
+  option outbound 'routing_node_${key}'"
       fi
+
+      if [ "$key" = "reject_out" ]; then
+        template="config ${keyword} '${keyword}_${key}_blocked'
+  option label '${keyword}_${key}_blocked'
+  option enabled '1'
+  option mode 'default'"
+        [ "$config_type" = "outbound" ] && \
+          template+="
+  option outbound 'block-out'
+  option rule_set_ipcidr_match_source '0'
+  option source_ip_is_private '0'
+  option ip_is_private '0'" || \
+          template+="
+  option server 'block-dns'"
+      fi
+
+      if [ "$config_type" = "dns" ]; then
+        local rulesets_count=0
+        for value in "${config_values[@]}"; do
+            grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value" && ((rulesets_count++))
+        done
+        # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
+        [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
+        template=$(match_server_for_dns_rule "$template" "$key")
+      fi
+
+      printf "%s\n" "$template" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
 
       for value in "${config_values[@]}"; do
         [ "$config_type" = "dns" ] && { grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value"; } && continue
