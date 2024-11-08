@@ -17,6 +17,40 @@ to_upper() {
   echo -e "$1" | tr "[a-z]" "[A-Z]"
 }
 
+match_node() {
+  local -n array_to_match=$1
+  local key=$2
+  local tmp_key_to_match
+  properly_matched_node_name=""
+
+  for tmp_key_to_match in "${array_to_match[@]}"; do
+    local t_key=$(to_upper "$key")
+    local t_key_to_match=$(to_upper "$tmp_key_to_match")
+    if [[ "$t_key" == "$t_key_to_match"* ]]; then
+      properly_matched_node_name="$tmp_key_to_match"
+      break
+    fi
+  done
+}
+
+config_map() {
+  local -n array_ref=$1
+  local -n map_ref=$2
+  local -n map_order_ref=$3
+  local entry
+
+  for entry in "${array_ref[@]}"; do
+    if [[ "$entry" == *"|"* ]]; then
+      local key="${entry%%|*}"
+      local values="${entry#*|}"
+      map_order_ref+=("$key")
+      IFS=$'\n' read -r -d '' -a urls <<<"$values"
+      [ "${#urls[@]}" -le 0 ] && echo "WARN: The tag [${key}] is invalid and will be skipped..." && continue
+      map_ref["$key"]="${urls[*]}"
+    fi
+  done
+}
+
 download_original_config_file() {
   echo -n "------ Downloading the original homeproxy file from GitHub......"
   local download_count=0
@@ -42,72 +76,26 @@ download_original_config_file() {
   echo "done!"
 }
 
-match_node() {
-  local -n array_to_match=$1
-  local key=$2
-  local tmp_key_to_match
-  properly_matched_node_name=""
-
-  for tmp_key_to_match in "${array_to_match[@]}"; do
-    local t_key=$(to_upper "$key")
-    local t_key_to_match=$(to_upper "$tmp_key_to_match")
-    if [[ "$t_key" == "$t_key_to_match"* ]]; then
-      properly_matched_node_name="$tmp_key_to_match"
-      break
-    fi
-  done
-}
-
-gen_unified_outbound_nodes() {
-
-  if [ -n "${UNIFIED_OUTBOUND_NODES+x}" ] && [ ${#UNIFIED_OUTBOUND_NODES[@]} -gt 0 ]; then
-    for node in "${UNIFIED_OUTBOUND_NODES[@]}"; do
-      local random_str=$(gen_random_secret 3)
-      local node_name="node_${node}_${random_str}"
-
-      local node_label="${node} outbound node"
-      local routing_node_name="routing_node_${node}_${random_str}"
-      local routing_node_label="routing_node_${node}"
-
-      printf "config node '%s'\n" "$node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option label '%s'\n" "$node_label" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option interrupt_exist_connections '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
-      printf "config routing_node '%s'\n" "$routing_node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option label '%s'\n" "$routing_node_label" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option node '%s'\n" "$node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option enabled '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    done
+subscribe() {
+  if [ -z "${SUBSCRIPTION_URLS+x}" ] || [ ${#SUBSCRIPTION_URLS[@]} -eq 0 ]; then
+    echo "------ Array 'SUBSCRIPTION_URLS' is not defined or has no elements. Skipping the subscription process."
+    return 0
   fi
-}
 
-config_map() {
-  local -n array_ref=$1
-  local -n map_ref=$2
-  local -n map_order_ref=$3
-  local entry
-
-  for entry in "${array_ref[@]}"; do
-    if [[ "$entry" == *"|"* ]]; then
-      local key="${entry%%|*}"
-      local values="${entry#*|}"
-      map_order_ref+=("$key")
-      IFS=$'\n' read -r -d '' -a urls <<<"$values"
-      [ "${#urls[@]}" -le 0 ] && echo "WARN: The tag [${key}] is invalid and will be skipped..." && continue
-      map_ref["$key"]="${urls[*]}"
-    fi
+  echo -n "------ Updating subscriptions......"
+  for sub_url in ${SUBSCRIPTION_URLS[@]}; do
+    uci add_list $UCI_GLOBAL_CONFIG.subscription.subscription_url=$sub_url
   done
+  uci commit $UCI_GLOBAL_CONFIG.subscription.subscription_url
+
+  /etc/homeproxy/scripts/update_subscriptions.uc 2>/dev/null
+  echo "done! Refresh your browser and check the homeproxy logs to see if any errors occurred during the subscription process."
 }
 
 gen_public_config() {
-  if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
-    mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
-    echo "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' has been successfully backed up to ---> $TARGET_HOMEPROXY_CONFIG_PATH.bak"
-  fi
-
+  
   download_original_config_file
+  subscribe
 
   echo -n "------ Preparing to create default and custom nodes......"
   local output_msg=$(uci get $UCI_GLOBAL_CONFIG.config 2>&1)
@@ -115,32 +103,12 @@ gen_public_config() {
       $(uci delete $UCI_GLOBAL_CONFIG.config)
   fi
 
-  [ "$AUTO_GEN_DEFAULT_NODES" = "1" ] && DEFAULT_GLOBAL_OUTBOUND="routing_node_auto_select" || DEFAULT_GLOBAL_OUTBOUND="direct-out"
-
-  if [ "$AUTO_GEN_DEFAULT_NODES" -eq 1 ]; then
-    $(uci -q batch <<-EOF >"/dev/null"
-      set $UCI_GLOBAL_CONFIG.routing_node_auto_select='routing_node'
-      set $UCI_GLOBAL_CONFIG.routing_node_auto_select.label='♻️ Auto_Select'
-      set $UCI_GLOBAL_CONFIG.routing_node_auto_select.node='node_Auto_Select'
-      set $UCI_GLOBAL_CONFIG.routing_node_auto_select.domain_strategy='ipv4_only'
-      set $UCI_GLOBAL_CONFIG.routing_node_auto_select.enabled='1'
-
-      set $UCI_GLOBAL_CONFIG.node_Auto_Select='node'
-      set $UCI_GLOBAL_CONFIG.node_Auto_Select.label='♻️ Auto_Select_outbound_node'
-      set $UCI_GLOBAL_CONFIG.node_Auto_Select.type='urltest'
-      set $UCI_GLOBAL_CONFIG.node_Auto_Select.test_url='http://cp.cloudflare.com'
-      set $UCI_GLOBAL_CONFIG.node_Auto_Select.interval='10m'
-      set $UCI_GLOBAL_CONFIG.node_Auto_Select.idle_timeout='30m'
-      set $UCI_GLOBAL_CONFIG.node_Auto_Select.interrupt_exist_connections='1'
-EOF
-)
-  fi
-
   # Default configuration
   $(uci -q batch <<-EOF >"/dev/null"
     set $UCI_GLOBAL_CONFIG.routing.default_outbound=$DEFAULT_GLOBAL_OUTBOUND
     set $UCI_GLOBAL_CONFIG.routing.sniff_override='0'
     set $UCI_GLOBAL_CONFIG.routing.udp_timeout='300'
+    set $UCI_GLOBAL_CONFIG.routing.bypass_cn_traffic='0'
 
     set $UCI_GLOBAL_CONFIG.config=$UCI_GLOBAL_CONFIG
     set $UCI_GLOBAL_CONFIG.config.routing_mode='custom'
@@ -148,36 +116,15 @@ EOF
     set $UCI_GLOBAL_CONFIG.config.proxy_mode='redirect_tproxy'
     set $UCI_GLOBAL_CONFIG.config.ipv6_support='0'
 
-    set $UCI_GLOBAL_CONFIG.experimental=$UCI_GLOBAL_CONFIG
-    set $UCI_GLOBAL_CONFIG.experimental.clash_api_port='9090'
-    set $UCI_GLOBAL_CONFIG.experimental.clash_api_log_level='warn'
-    set $UCI_GLOBAL_CONFIG.experimental.clash_api_enabled='1'
-    set $UCI_GLOBAL_CONFIG.experimental.set_dash_backend='1'
-    set $UCI_GLOBAL_CONFIG.experimental.clash_api_secret=$(gen_random_secret 20)
-    set $UCI_GLOBAL_CONFIG.experimental.dashboard_repo='metacubex/yacd-meta'
-
-    delete $UCI_GLOBAL_CONFIG.nodes_domain
-    delete $UCI_GLOBAL_CONFIG.dns
+    del $UCI_GLOBAL_CONFIG.nodes_domain
+    del $UCI_GLOBAL_CONFIG.dns
+    del $UCI_GLOBAL_CONFIG.control.wan_proxy_ipv6_ips
 
     set $UCI_GLOBAL_CONFIG.dns=$UCI_GLOBAL_CONFIG
     set $UCI_GLOBAL_CONFIG.dns.dns_strategy='ipv4_only'
     set $UCI_GLOBAL_CONFIG.dns.default_server='default-dns'
     set $UCI_GLOBAL_CONFIG.dns.default_strategy='ipv4_only'
     set $UCI_GLOBAL_CONFIG.dns.disable_cache='1'
-
-    set $UCI_GLOBAL_CONFIG.route_clash_direct='routing_rule'
-    set $UCI_GLOBAL_CONFIG.route_clash_direct.label='route_clash_direct'
-    set $UCI_GLOBAL_CONFIG.route_clash_direct.enabled='1'
-    set $UCI_GLOBAL_CONFIG.route_clash_direct.mode='default'
-    set $UCI_GLOBAL_CONFIG.route_clash_direct.clash_mode='direct'
-    set $UCI_GLOBAL_CONFIG.route_clash_direct.outbound='direct-out'
-
-    set $UCI_GLOBAL_CONFIG.route_clash_global='routing_rule'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.label='route_clash_global'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.enabled='1'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.mode='default'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.clash_mode='global'
-    set $UCI_GLOBAL_CONFIG.route_clash_global.outbound='direct-out'
 
     set $UCI_GLOBAL_CONFIG.dns_rule_any='dns_rule'
     set $UCI_GLOBAL_CONFIG.dns_rule_any.label='dns_rule_any'
@@ -186,40 +133,10 @@ EOF
     set $UCI_GLOBAL_CONFIG.dns_rule_any.server='default-dns'
     add_list $UCI_GLOBAL_CONFIG.dns_rule_any.outbound='any-out'
 
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct='dns_rule'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.label='dns_rule_clash_direct'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.enabled='1'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.mode='default'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.clash_mode='direct'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_direct.server='default-dns'
-
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global='dns_rule'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.label='dns_rule_clash_global'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.enabled='1'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.mode='default'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.clash_mode='global'
-    set $UCI_GLOBAL_CONFIG.dns_rule_clash_global.server='default-dns'
 EOF
 )
   $(uci commit $UCI_GLOBAL_CONFIG)
   echo "done!"
-}
-
-gen_custom_nodes_config() {
-
-  gen_unified_outbound_nodes
-
-  for key in ${RULESET_MAP_KEY_ORDER_ARRAY[@]}; do
-    # Don't have to create custom nodes for ad and privacy-focused rulesets.
-    if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then 
-      continue
-    fi
-
-    printf "config node 'node_%s_outbound_nodes'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option label '%s outbound node'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option type 'selector'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option interrupt_exist_connections '1'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-  done
 }
 
 gen_rule_sets_config() {
@@ -313,6 +230,44 @@ gen_dns_server_config() {
 
 CONFIG_TYPES=("dns|dns_rule" "outbound|routing_rule")
 
+match_server_for_dns_rule() {
+  local template=$1
+  local dns_key_array=("$2")
+
+  if [ "$2" = "direct_out" ]; then 
+    template+="
+  option server 'default-dns'"
+    echo -e "$template"
+    return 0
+  fi
+
+  local matched_dns_server_name=""
+  for tmp_dns_server_name in "${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[@]}"; do
+    properly_matched_node_name=""
+    match_node dns_key_array "$tmp_dns_server_name"
+    [ -n "$properly_matched_node_name" ] && matched_dns_server_name="$tmp_dns_server_name" && break
+  done
+
+  if [ -n "$matched_dns_server_name" ]; then
+    template+="
+  option server 'dns_server_${matched_dns_server_name}'"
+    echo -e "$template"
+    return 0
+  fi
+  
+  if [ "$2" != "reject_out" ]; then
+    local last_dns_server_name="${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[-1]}"
+    local last_dns_servers_array=(${DNS_SERVERS_MAP[$last_dns_server_name]})
+    local last_dns_server_element_count=${#last_dns_servers_array[@]}
+    [ "$last_dns_server_element_count" -eq 1 ] && 
+      template+="
+  option server 'dns_server_${last_dns_server_name}'" || 
+      template+="
+  option server 'dns_server_${last_dns_server_name}_1'"
+  fi
+  echo -e "$template"
+}
+
 gen_rules_config() {
   local config_type="$1"
   local keyword
@@ -346,34 +301,16 @@ gen_rules_config() {
           done
           # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
           [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
-
-          local dns_key_array=("$key")
-          local matched_dns_server_name=""
-          for tmp_dns_server_name in "${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[@]}"; do
-            properly_matched_node_name=""
-            match_node dns_key_array "$tmp_dns_server_name"
-            [ -n "$properly_matched_node_name" ] && matched_dns_server_name="$tmp_dns_server_name" && break
-          done
-
-          if [ -n "$matched_dns_server_name" ]; then
-            template+="
-  option server 'dns_server_${matched_dns_server_name}'"
-          else
-            if [[ "$key" != "reject_out" && "$key" != "direct_out" ]]; then
-              local last_dns_server_name="${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[-1]}"
-              local last_dns_servers_array=(${DNS_SERVERS_MAP[$last_dns_server_name]})
-              local last_dns_server_element_count=${#last_dns_servers_array[@]}
-              [ "$last_dns_server_element_count" -eq 1 ] && \
-                template+="
-  option server 'dns_server_${last_dns_server_name}'" || \
-                template+="
-  option server 'dns_server_${last_dns_server_name}_1'"
-            fi
-          fi
+          
+          template=$(match_server_for_dns_rule "$template" "$key")
         fi
 
         printf "%s\n" "$template" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        [ "$config_type" = "outbound" ] && printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        [ "$config_type" = "outbound" ] && {
+          [ "$key" = "direct_out" ] && printf "  option outbound 'direct-out'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" ||
+          printf "  option outbound 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        }
+
       fi
 
       for value in "${config_values[@]}"; do
@@ -405,10 +342,6 @@ gen_homeproxy_config() {
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER_ARRAY
 
   gen_public_config
-
-  echo -n "------ Configuring custom outbound nodes..."
-  gen_custom_nodes_config
-  echo "done!"
 
   echo -n "------ Configuring rule sets..."
   gen_rule_sets_config
@@ -443,11 +376,10 @@ declare -A DNS_SERVER_NAMES_MAP
 declare -A RULESET_CONFIG_MAP
 declare -a RULESET_CONFIG_KEY_ORDER_ARRAY
 
-AUTO_GEN_DEFAULT_NODES=1
-AUTO_GEN_OTHER_NODES=2
+DEFAULT_GLOBAL_OUTBOUND="direct-out"
 
 entrance() {
-  if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]] || \
+  if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]] ||
     [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
     echo "ERROR: Error(s) detected in rules.sh. The script will now exit!"
     exit 1
@@ -459,7 +391,7 @@ entrance() {
   echo ""
   echo ""
   echo ""
-  echo "      ImmortalWRT (OpenWRT) homeproxy one-click generation script.       "
+  echo "      ImmortalWRT (OpenWRT) homeproxy one-click generation script.     "
   echo ""
   echo ""
   echo ""
@@ -468,10 +400,11 @@ entrance() {
   echo "WARN: Please make sure that you have backed up the /etc/config/homeproxy file in advance!"
   echo ""
   echo ""
-  echo "Do you want to generate the 'Auto_Select' node? (1 for Yes, 2 for No; please specify the remaining nodes separately in the configuration file.)"
-  read -p "Type in your choice and press Enter: " AUTO_GEN_DEFAULT_NODES
-  AUTO_GEN_DEFAULT_NODES=$( [ "$AUTO_GEN_DEFAULT_NODES" = "1" ] && echo "$AUTO_GEN_DEFAULT_NODES" || echo "2" )
-  echo ""
+
+  if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
+    mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
+    echo "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' has been successfully backed up to ---> $TARGET_HOMEPROXY_CONFIG_PATH.bak"
+  fi
 }
 
 entrance
