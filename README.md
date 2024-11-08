@@ -13,5 +13,3 @@
 
 参考 ----> [Wiki](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC-Wiki) .
 
-main 分支脚本现在只支持从 ImmortalWRT 应用仓库下载的 Homeproxy 插件。
-
