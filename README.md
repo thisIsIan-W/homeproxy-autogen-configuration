@@ -1,5 +1,5 @@
 # homeproxy-autogen-configuration
-参考 ----> [Wiki](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC-Wiki) .
+~~参考 ----> [Wiki(Deprecated)](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC-Wiki(%E5%B7%B2%E8%BF%87%E6%97%B6-Deprecated))~~ .
 
 <br/>
 
