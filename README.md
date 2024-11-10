@@ -13,3 +13,4 @@
 
 参考 ----> [Wiki](https://github.com/thisIsIan-W/homeproxy-autogen-configuration/wiki/Homeproxy-%E4%B8%80%E9%94%AE%E9%85%8D%E7%BD%AE%E8%84%9A%E6%9C%AC-Wiki) .
 
+支持 Immorotalwrt / Openwrt 应用市场直接下载安装的 Homeproxy 插件的一键快速配置。
