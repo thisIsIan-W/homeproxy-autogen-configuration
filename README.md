@@ -22,7 +22,7 @@
 >
 > 原脚本依赖的 [Homeproxy](https://github.com/muink) 插件支持 Clash API、selector、url-select 等特性，本仓库 deprecated 分支脚本代码已对其进行了完整支持。
 >
-> 但由于上游 Homeproxy 仓库已停更(sing-box 内核版本停留在 1.10.0-beta.3)，遂本仓库已不再更新原脚本。
+> 但由于上游 Homeproxy 仓库已停更，遂本仓库已不再更新 deprecated 分支脚本。
 
 如果你希望继续使用它，请手动切换到 deprecated 分支并参考分支内 wiki 链接!
 
