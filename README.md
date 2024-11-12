@@ -2,9 +2,21 @@
 
 
 
+如果作者的脚本有帮助到你，请帮忙在本仓库右上角点亮 Star，非常感谢您的支持！
+
+<br/>
+
+<br/>
+
 `main` 分支脚本以 [immortallwrt/homeproxy](https://github.com/immortalwrt/homeproxy) 插件为基准撰写，请参阅 [说明书](https://thisisian-w.github.io/2024/10/30/homeproxy-one-click-configure-scripts) 定制你的 Homeproxy 配置。
 
+任何问题，请直接提 issue！
 
+<br/>
+
+<br/>
+
+<br/>
 
 以下为过时内容，请酌情参考！
 
