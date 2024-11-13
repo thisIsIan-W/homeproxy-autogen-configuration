@@ -82,7 +82,7 @@ subscribe() {
     return 0
   fi
 
-  echo -n "------ Updating subscriptions......"
+  echo -n "------ Updating subscriptions(This may take some time, please wait util it's done)...... "
   for sub_url in ${SUBSCRIPTION_URLS[@]}; do
     uci add_list $UCI_GLOBAL_CONFIG.subscription.subscription_url=$sub_url
   done
