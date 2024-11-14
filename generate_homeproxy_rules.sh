@@ -437,8 +437,8 @@ gen_homeproxy_config() {
   local lan_ipv4_addr
   lan_ipv4_addr=$(ubus call network.interface.lan status | grep '\"address\"\: \"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' || true)
   [ -n "$lan_ipv4_addr" ] && \
-    echo -e "Script executed successfully! Please visit http://$lan_ipv4_addr/cgi-bin/luci/admin/services/homeproxy to see the difference!\n" || \
-    echo -e "Script executed successfully!\n"
+    echo -e "Script execution is complete. Please visit http://$lan_ipv4_addr/cgi-bin/luci/admin/services/homeproxy to see the difference!\n" || \
+    echo -e "Script execution is complete.!\n"
 }
 
 declare -A RULESET_MAP
