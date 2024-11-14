@@ -3,11 +3,12 @@
 . rules.sh
 
 UCI_GLOBAL_CONFIG="homeproxy"
-FIRST_DNS_SERVER=""
 MIRROR_PREFIX_URL="https://ghp.ci"
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
-
+SING_BOX_REPO="SagerNet/sing-box"
+SING_BOX_API_URL="https://api.github.com/repos/$SING_BOX_REPO/tags"
+SING_BOX_MIRROR_API_URL="https://gh-api.p3terx.com/repos/$SING_BOX_REPO/tags"
 
 gen_random_secret() {
   tr -dc 'a-zA-Z0-9' </dev/urandom | head -c $1
@@ -78,18 +79,28 @@ download_original_config_file() {
 
 subscribe() {
   if [ -z "${SUBSCRIPTION_URLS+x}" ] || [ ${#SUBSCRIPTION_URLS[@]} -eq 0 ]; then
-    echo "------ Array 'SUBSCRIPTION_URLS' is not defined or has no elements. Skipping the subscription process."
     return 0
   fi
 
-  echo -n "------ Updating subscriptions(This may take some time, please wait util it's done)...... "
+  local hp_log_file="/var/run/$UCI_GLOBAL_CONFIG/$UCI_GLOBAL_CONFIG.log"
+  [[ -f "$hp_log_file" ]] && > "$hp_log_file"
+
+  echo -n "------ Updating subscriptions (This may take some time, please wait)...... "
   for sub_url in ${SUBSCRIPTION_URLS[@]}; do
     uci add_list $UCI_GLOBAL_CONFIG.subscription.subscription_url=$sub_url
   done
   uci commit $UCI_GLOBAL_CONFIG.subscription.subscription_url
 
   /etc/homeproxy/scripts/update_subscriptions.uc 2>/dev/null
-  echo "done! Refresh your browser and check the homeproxy logs to see if any errors occurred during the subscription process."
+  if grep -Eq 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file"; then
+    echo ""
+    grep -E 'unsupported|Failed to fetch|Error|FATAL|ERROR' "$hp_log_file" | while IFS= read -r line; do
+      echo -e "\e[33mWARN: $line\e[0m"
+    done
+    echo ""
+  else
+    echo "done!"
+  fi
 }
 
 get_last_dns_server() {
@@ -353,6 +364,50 @@ gen_routing_nodes_config() {
   done
 }
 
+upgrade_sing_box_core() {
+  [[ "$UPGRADE_SING_BOX_VERSION" != "y" ]] && return 0
+
+  local arch=$(uname -m)
+  case "$arch" in
+    x86_64) arch="amd64" ;;
+    aarch64 | arm64) arch="arm64" ;;
+    armv7l | armv7) arch="armv7" ;;
+    armv6l | armv6) arch="armv6" ;;
+    i386 | i686) arch="386" ;;
+    *) echo "\e[33mWARN: Unsupported architecture: $arch. Skipping the upgrade process.\e[0m" ; return 1 ;;
+  esac
+
+  echo -n "------ Upgrading sing-box to the latest version (This may take some time, please wait)..."
+  local response=$(curl -fs --max-time 5 "$SING_BOX_API_URL")
+  local failed_msg="\e[33mWARN: Failed to establish connection with the remote repository. Skipping the upgrade process.\e[0m"
+  if [[ -z "$response" ]]; then
+    response=$(curl -fs --max-time 5 "$SING_BOX_MIRROR_API_URL")
+    if [[ -z "$response" ]]; then
+      echo ""
+      echo -e "$failed_msg"
+      return 1
+    fi
+  fi
+
+  local latest_tag=$(echo "$response" | jq -r '.[].name' | head -n 1)
+  [[ -z "$latest_tag" ]] && echo -e "$failed_msg" && return 1
+  local current_version=$(sing-box version | awk 'NR==1 {print $3}')
+  [[ "$current_version" == "${latest_tag#v}" ]] && echo -e "\e[32mYou are already using the latest version --> $latest_tag!\e[0m" && return 0
+
+  local full_link="$MIRROR_PREFIX_URL/https://github.com/$SING_BOX_REPO/releases/download/$latest_tag/sing-box-${latest_tag#v}-linux-$arch.tar.gz"
+  local file_name=$(basename "$full_link")
+  curl -sL -o "$file_name" "$full_link"
+  [[ $? -ne 0 ]] && return 1
+
+  tar -zxf "$file_name"
+  cp "${file_name%.tar.gz}"/sing-box /usr/bin/sing-box
+  rm -rf "${file_name%.tar.gz}"
+  rm "$file_name"
+  chmod +x /usr/bin/sing-box
+
+  echo -e "done! \e[32mSing-box core has been upgraded to $latest_tag.\e[0m"
+}
+
 gen_homeproxy_config() {
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER_ARRAY
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER_ARRAY
@@ -375,6 +430,8 @@ gen_homeproxy_config() {
   echo -n "------ Configuring routing nodes..."
   gen_routing_nodes_config
   echo "done!"
+
+  upgrade_sing_box_core
   echo ""
   
   local lan_ipv4_addr
@@ -393,6 +450,7 @@ declare -A RULESET_CONFIG_MAP
 declare -a RULESET_CONFIG_KEY_ORDER_ARRAY
 
 DEFAULT_GLOBAL_OUTBOUND="direct-out"
+UPGRADE_SING_BOX_VERSION="y"
 
 entrance() {
   if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]] ||
@@ -403,7 +461,7 @@ entrance() {
 
   echo ""
   echo ""
-  echo "***********************************************************************"
+  echo -e "\e[32m***********************************************************************"
   echo ""
   echo ""
   echo ""
@@ -411,15 +469,19 @@ entrance() {
   echo ""
   echo ""
   echo ""
-  echo "***********************************************************************"
+  echo -e "***********************************************************************\e[0m"
   echo ""
-  echo "WARN: Please make sure that you have backed up the /etc/config/homeproxy file in advance!"
+  echo -e "\e[33mWARN: Please make sure that you have backed up the /etc/config/homeproxy file in advance!\e[0m"
+  echo -e "\e[33m      Running the script will overwrite the backup file from the previous execution.\e[0m"
   echo ""
   echo ""
+  read -p "Do you want to upgrade the sing-box core file to the latest version? (y/n): " UPGRADE_SING_BOX_VERSION
+  echo ""
+  UPGRADE_SING_BOX_VERSION=$( [[ "$UPGRADE_SING_BOX_VERSION" == "y" ]] && echo "$UPGRADE_SING_BOX_VERSION" || echo "n" )
 
   if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
     mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
-    echo "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' has been successfully backed up to ---> $TARGET_HOMEPROXY_CONFIG_PATH.bak"
+    echo -e "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' has been backed up to ---> \e[32m$TARGET_HOMEPROXY_CONFIG_PATH.bak\e[0m"
   fi
 }
 
