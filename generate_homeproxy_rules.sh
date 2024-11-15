@@ -392,7 +392,7 @@ upgrade_sing_box_core() {
   local latest_tag=$(echo "$response" | jq -r '.[].name' | head -n 1)
   [[ -z "$latest_tag" ]] && echo -e "$failed_msg" && return 1
   local current_version=$(sing-box version | awk 'NR==1 {print $3}')
-  [[ "$current_version" == "${latest_tag#v}" ]] && echo -e "\e[32mYou are already using the latest version --> $latest_tag!\e[0m" && return 0
+  [[ "$current_version" == "${latest_tag#v}" ]] && echo -e "\e[32mYour sing-box version is up-to-date --> $latest_tag!\e[0m" && return 0
 
   local full_link="$MIRROR_PREFIX_URL/https://github.com/$SING_BOX_REPO/releases/download/$latest_tag/sing-box-${latest_tag#v}-linux-$arch.tar.gz"
   local file_name=$(basename "$full_link")
@@ -405,7 +405,7 @@ upgrade_sing_box_core() {
   rm "$file_name"
   chmod +x /usr/bin/sing-box
 
-  echo -e "done! \e[32mSing-box core has been upgraded to $latest_tag.\e[0m"
+  echo -e "done! \e[32mSing-box has been upgraded to $latest_tag.\e[0m"
 }
 
 gen_homeproxy_config() {
