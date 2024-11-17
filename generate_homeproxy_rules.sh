@@ -405,7 +405,7 @@ upgrade_sing_box_core() {
   rm "$file_name"
   chmod +x /usr/bin/sing-box
 
-  echo -e "done! \e[32mSing-box has been upgraded to $latest_tag.\e[0m"
+  echo -e "done! \e[32mSing-box is upgraded to $latest_tag.\e[0m"
 }
 
 gen_homeproxy_config() {
@@ -481,7 +481,7 @@ entrance() {
 
   if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
     mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
-    echo -e "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' has been backed up to ---> \e[32m$TARGET_HOMEPROXY_CONFIG_PATH.bak\e[0m"
+    echo -e "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' is backed up to ---> \e[32m$TARGET_HOMEPROXY_CONFIG_PATH.bak\e[0m"
   fi
 }
 
