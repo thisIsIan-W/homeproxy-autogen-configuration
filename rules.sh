@@ -2,7 +2,9 @@
 
 # ****************************************************************************************************
 # **                                                                                                **
+#
 #             更多模板请参考 rules_templates 文件夹下的文件！
+#
 # **                                                                                                **
 # ****************************************************************************************************
 
@@ -10,6 +12,8 @@
 SUBSCRIPTION_URLS=(
   # Define your subscription url(s) here.
   # The format should be: "URL#Your_proxy_server_name"
+  # Note:
+  #   If 'Your_proxy_server_name' includes Chinese characters, make sure to change the encoding of this file to UTF-8."
 
   "https://abc.xyz#airport01"
   "https://123.abc#airport02"
@@ -20,39 +24,46 @@ SUBSCRIPTION_URLS=(
 RULESET_URLS=(
 
   "reject_out|
-  /etc/homeproxy/ruleset/adblockdns.srs
-  /etc/homeproxy/ruleset/reject-ruleset1.json
-  https://reject-ruleset2.json
-  https://reject-ruleset3.srs"
-
-  "direct_out|
-  https://cn.srs"
+  rule-set url1
+  rule-set url2
+  rule-set url3"
 
   "HongKong_common|
-  https://google.srs
-  https://youtube.srs"
+  rule-set url1
+  rule-set url2
+  rule-set url3"
 
   "HongKong_others|
-  https://telegram.srs
-  https://telegramip.json"
+  rule-set url1
+  rule-set url2
+  rule-set url3"
 
   "Japan_01|
-  https://geosite-twitter.srs
-  https://x.srs
-  https://twitter.srs"
+  rule-set url1
+  rule-set url2
+  rule-set url3"
 
   "USA|
-  https://geosite-openai.srs
-  https://bing.srs"
+  rule-set url1
+  rule-set url2
+  rule-set url3"
   
-  # ------------------ Start 特殊规则集单独选择节点出站(按需使用) ------------------
+  # ------------------ Define your list of other special rule-sets here. ------------------
   "google_ruleset01|
-  https://google.srs
-  https://google-cn.srs"
+  rule-set url1
+  rule-set url2
+  rule-set url3"
   
   "google_ruleset02|
-  https://google-trust-services@cn.srs"
-  # ------------------ End   特殊规则集单独选择节点出站(按需使用) ------------------
+  rule-set url1
+  rule-set url2
+  rule-set url3"
+  # ------------------ End. ------------------
+
+  "direct_out|
+  rule-set url1
+  rule-set url2
+  rule-set url3"
 
   # More...
 
@@ -61,22 +72,17 @@ RULESET_URLS=(
 
 DNS_SERVERS=(
 
-  "HongKong_common_cf_DoH|https://1.1.1.1/dns-query"
-  "HongKong_others_cf_UDP|1.1.1.1"
+  "HongKong_common_your_suffix|Your_dns_server_url"
+  "HongKong_others_your_suffix|Your_dns_server_url"
+  "Japan_01|Your_dns_server_url"
+  "USA|Your_dns_server_url"
+  "google_ruleset01|Your_dns_server_url"
+  "google_ruleset02|Your_dns_server_url"
 
-  "Japan_01|https://doh.opendns.com/dns-query"
-  "USA|https://doh.opendns.com/dns-query"
-
-  # ------------------ Start 特殊规则集单独选择DNS服务器 ------------------
-  "google_ruleset01|https://8.8.8.8/dns-query"
-  "google_ruleset02_google_DoT|https://1.1.1.1/dns-query"
-  # ------------------ End   特殊规则集单独选择DNS服务器 ------------------
-
-  "my_cn_direct_TencentUDP|119.29.29.29"
-
-  # 223.5.5.5 会作为默认DNS服务器被选中
+  # The first URL in the last tag of this array will be the default dns server's URL.
+  # In this case, Your_dns_server_url1 will be chosen to be the one.
   "backup_servers|
-  223.5.5.5
-  8.8.8.8
-  rcode://refused"
+  Your_dns_server_url1
+  Your_dns_server_url2
+  Your_dns_server_url3"
 )

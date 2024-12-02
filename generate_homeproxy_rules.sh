@@ -10,9 +10,6 @@ SING_BOX_REPO="SagerNet/sing-box"
 SING_BOX_API_URL="https://api.github.com/repos/$SING_BOX_REPO/tags"
 SING_BOX_MIRROR_API_URL="https://gh-api.p3terx.com/repos/$SING_BOX_REPO/tags"
 
-gen_random_secret() {
-  tr -dc 'a-zA-Z0-9' </dev/urandom | head -c $1
-}
 
 to_upper() {
   echo -e "$1" | tr "[a-z]" "[A-Z]"
