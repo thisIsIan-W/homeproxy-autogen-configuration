@@ -88,10 +88,11 @@ subscribe() {
   done
   uci commit $UCI_GLOBAL_CONFIG.subscription.subscription_url
 
+  # Execute the subscription logics.
   /etc/homeproxy/scripts/update_subscriptions.uc 2>/dev/null
-  if grep -Eq 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file"; then
+  if grep -Eiq 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file"; then
     echo ""
-    grep -E 'unsupported|Failed to fetch|Error|FATAL|ERROR' "$hp_log_file" | while IFS= read -r line; do
+    grep -Ei 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file" | while IFS= read -r line; do
       echo -e "\e[33mWARN: $line\e[0m"
     done
     echo ""
@@ -112,10 +113,6 @@ get_last_dns_server() {
 }
 
 gen_public_config() {
-  
-  download_original_config_file
-  subscribe
-
   echo -n "------ Preparing to create default and custom nodes......"
   local output_msg=$(uci get $UCI_GLOBAL_CONFIG.config 2>&1)
   if [[ "$output_msg" != *"Entry not found"* ]]; then
@@ -181,11 +178,11 @@ gen_rule_sets_config() {
       # Note that the character '-' should not be placed in the middle
       $(echo "$rule_name" | grep -q '[-.*#@!&]') && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
 
-      if { grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name"; } ||
-         { grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name"; }; then
-          rule_name="geoip_$rule_name"
+      if grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" ||
+         grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name"; then
+        rule_name="geoip_$rule_name"
       elif grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name"; then
-          rule_name="geosite_$rule_name"
+        rule_name="geosite_$rule_name"
       fi
 
       [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
@@ -409,6 +406,10 @@ gen_homeproxy_config() {
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER_ARRAY
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER_ARRAY
 
+  # Use the standard homeproxy configuration template as a guarantee.
+  download_original_config_file
+  # Pull all nodes from the subscription servers if specified.
+  subscribe
   gen_public_config
 
   echo -n "------ Configuring rule sets..."
