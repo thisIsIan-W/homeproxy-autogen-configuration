@@ -3,7 +3,7 @@
 . rules.sh
 
 UCI_GLOBAL_CONFIG="homeproxy"
-MIRROR_PREFIX_URL="https://ghp.ci"
+MIRROR_PREFIX_URL="https://ghgo.xyz"
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
 SING_BOX_REPO="SagerNet/sing-box"
