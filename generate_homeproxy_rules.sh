@@ -1,18 +1,26 @@
 #!/bin/bash
 
-. rules.sh
-
-UCI_GLOBAL_CONFIG="homeproxy"
+# You can change it to another available link if the existing one is not reachable.
 MIRROR_PREFIX_URL="https://ghgo.xyz"
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
+
 SING_BOX_REPO="SagerNet/sing-box"
 SING_BOX_API_URL="https://api.github.com/repos/$SING_BOX_REPO/tags"
 SING_BOX_MIRROR_API_URL="https://gh-api.p3terx.com/repos/$SING_BOX_REPO/tags"
 
+UCI_GLOBAL_CONFIG="homeproxy"
 
 to_upper() {
   echo -e "$1" | tr "[a-z]" "[A-Z]"
+}
+
+log_error() {
+  echo -e "\e[31mERROR: ${1}\e[0m"
+}
+
+log_warn() {
+  echo -e "\e[33mWARNING: ${1}\e[0m"
 }
 
 match_node() {
@@ -20,7 +28,6 @@ match_node() {
   local key=$2
   local tmp_key_to_match
   properly_matched_node_name=""
-
   for tmp_key_to_match in "${array_to_match[@]}"; do
     local t_key=$(to_upper "$key")
     local t_key_to_match=$(to_upper "$tmp_key_to_match")
@@ -49,21 +56,22 @@ config_map() {
   done
 }
 
-download_original_config_file() {
-  echo -n "------ Downloading the original homeproxy file from GitHub......"
+fetch_homeproxy_config_file() {
+  echo -n "------ Fetching the original homeproxy file from GitHub......"
   local download_count=0
   while true; do
     ((download_count++))
 
     if [ "$download_count" -gt 5 ]; then
-      echo "ERROR: Please check the network connection. The file download link is: $HOMEPROXY_CONFIG_URL"
-      echo "ERROR: Failed to download the original homeproxy file from GitHub. Exiting..."
+      echo ""
+      log_error "Please check the network connection. The file download link is: $HOMEPROXY_CONFIG_URL"
+      log_error "Failed to fetch the homeproxy file from GitHub. Exiting..."
       exit 1
     fi
 
     wget -qO "/tmp/homeproxy" "$HOMEPROXY_CONFIG_URL"
     if [ $? -ne 0 ]; then
-      echo "Download failed, will try again after 2 seconds!(total times: 5)......"
+      log_warn "Operation failed, will try again after 2 seconds!(total times: 5)......"
       sleep 2
     else
       mv /tmp/homeproxy "$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -80,20 +88,26 @@ subscribe() {
   fi
 
   local hp_log_file="/var/run/$UCI_GLOBAL_CONFIG/$UCI_GLOBAL_CONFIG.log"
-  [[ -f "$hp_log_file" ]] && > "$hp_log_file"
+  [ -f "$hp_log_file" ] && > "$hp_log_file"
 
-  echo -n "------ Updating subscriptions (This may take some time, please wait)...... "
+  echo -n "------ Updating subscriptions (This may take some time, please wait) ......"
   for sub_url in ${SUBSCRIPTION_URLS[@]}; do
     uci add_list $UCI_GLOBAL_CONFIG.subscription.subscription_url=$sub_url
   done
   uci commit $UCI_GLOBAL_CONFIG.subscription.subscription_url
 
   # Execute the subscription logics.
-  /etc/homeproxy/scripts/update_subscriptions.uc 2>/dev/null
+  local update_subscription_file_path="/etc/homeproxy/scripts/update_subscriptions.uc"
+  if [ ! -f "${update_subscription_file_path}" ] || [ ! -x "${update_subscription_file_path}" ]; then
+    log_warn "An issue has been detected within your homeproxy files. Reinstall the application and subsequently attempt this option again!"
+    return 0
+  fi
+
+  "${update_subscription_file_path}" 2>/dev/null
   if grep -Eiq 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file"; then
     echo ""
     grep -Ei 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file" | while IFS= read -r line; do
-      echo -e "\e[33mWARN: $line\e[0m"
+     log_warn "$line"
     done
     echo ""
   else
@@ -113,14 +127,14 @@ get_last_dns_server() {
 }
 
 gen_public_config() {
-  echo -n "------ Preparing to create default and custom nodes......"
+  echo -n "------ Generating public config......"
   local output_msg=$(uci get $UCI_GLOBAL_CONFIG.config 2>&1)
   if [[ "$output_msg" != *"Entry not found"* ]]; then
-      $(uci delete $UCI_GLOBAL_CONFIG.config)
+    uci delete $UCI_GLOBAL_CONFIG.config
   fi
 
   # Default configuration
-  $(uci -q batch <<-EOF >"/dev/null"
+  uci -q batch <<-EOF >"/dev/null"
     set $UCI_GLOBAL_CONFIG.routing.default_outbound=$DEFAULT_GLOBAL_OUTBOUND
     set $UCI_GLOBAL_CONFIG.routing.sniff_override='0'
     set $UCI_GLOBAL_CONFIG.routing.udp_timeout='300'
@@ -149,69 +163,66 @@ gen_public_config() {
     set $UCI_GLOBAL_CONFIG.dns_rule_any.server='default-dns'
     add_list $UCI_GLOBAL_CONFIG.dns_rule_any.outbound='any-out'
 EOF
-)
 
-  $(uci commit $UCI_GLOBAL_CONFIG)
+  uci commit $UCI_GLOBAL_CONFIG
   echo "done!"
 }
 
 gen_rule_sets_config() {
-
   for key in ${RULESET_MAP_KEY_ORDER_ARRAY[@]}; do
     RULESET_CONFIG_KEY_ORDER_ARRAY+=("$key")
     for url in ${RULESET_MAP[$key]}; do
       local file_type=0
-      # The specified URL is an absolute path, and it should point to a file that's larger than 0 and ends with either .srs or .json
+      # A Linux-based absolute path.
       [[ -f "$url" && -s "$url" && ("$url" == *.srs || "$url" == *.json) ]] && file_type=1
-      # The specified URL is a valid link
+      # A valid link
       [[ "$url" =~ ^(https?):// && ( "$url" =~ \.srs$ || "$url" =~ \.json$ ) ]] && file_type=2
-
-      if [ "$file_type" -eq 0 ]; then
-        echo "WARN --- [$url] is invalid, skipping this rule!"
-        continue
-      fi
+      [ "$file_type" -eq 0 ] && echo -e "\n\e[33mWARN: [$url] is invalid, skipping this rule!\e[0m" && continue
 
       local tmp_rule_name=$(basename "$url")
       local rule_name="${tmp_rule_name%.*}"
       local rule_name_suffix="${tmp_rule_name##*.}"
 
       # Note that the character '-' should not be placed in the middle
-      $(echo "$rule_name" | grep -q '[-.*#@!&]') && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
+      echo "$rule_name" | grep -q '[-.*#@!&]' && {
+        rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
+      }
 
-      if grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" ||
+      if grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" || 
          grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name"; then
-        rule_name="geoip_$rule_name"
+        rule_name="geoip_${rule_name}"
       elif grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name"; then
-        rule_name="geosite_$rule_name"
+        rule_name="geosite_${rule_name}"
       fi
 
-      [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && \
-        RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},$rule_name" || \
+      [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && {
+        RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},$rule_name"
+      } || {
         RULESET_CONFIG_MAP["$key"]="$rule_name"
+      }
 
       printf "config ruleset '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       printf "  option label '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       printf "  option enabled '1'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
       [ "$file_type" -eq 1 ] && {
-        printf "  option type 'local'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+        printf "  option type 'local'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option path '%s'\n" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       } || {
-        printf "  option type 'remote'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
-        printf "  option update_interval '24h'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" && \
+        printf "  option type 'remote'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        printf "  option update_interval '24h'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option url '%s/%s'\n" "$MIRROR_PREFIX_URL" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       }
-
       local extension="${tmp_rule_name##*.}"
-      [ "$extension" = "srs" ] && \
-        printf "  option format 'binary'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH" || \
+      [ "$extension" = "srs" ] && {
+        printf "  option format 'binary'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      } || {
         printf "  option format 'source'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      }
     done
   done
 }
 
 gen_dns_server_config() {
-
   for dns_key in "${DNS_SERVERS_MAP_KEY_ORDER_ARRAY[@]}"; do
     local server_url_count=1
     local dns_servers_array=(${DNS_SERVERS_MAP[$dns_key]})
@@ -219,11 +230,7 @@ gen_dns_server_config() {
 
     for server_url in ${DNS_SERVERS_MAP[$dns_key]}; do
       local dns_server_name
-      if [ "$dns_server_element_count" -eq 1 ]; then
-        dns_server_name="${dns_key}"
-      else
-        dns_server_name="${dns_key}_${server_url_count}"
-      fi
+      [ "$dns_server_element_count" -eq 1 ] && dns_server_name="${dns_key}" || dns_server_name="${dns_key}_${server_url_count}"
 
       printf "config dns_server 'dns_server_%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       printf "  option label 'dns_server_%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -247,6 +254,7 @@ gen_dns_server_config() {
 CONFIG_TYPES=("dns|dns_rule" "outbound|routing_rule")
 
 match_server_for_dns_rule() {
+  # Inspect the provided dns rule and look for an appropriate dns server that corresponds to it.
   local template=$1
   local dns_key_array=("$2")
 
@@ -300,11 +308,13 @@ gen_rules_config() {
   option source_ip_is_private '0'
   option ip_is_private '0'
   option rule_set_ipcidr_match_source '0'"
-        [ "$key" = "direct_out" ] && 
+        [ "$key" = "direct_out" ] && {
           template+="
-  option outbound 'direct-out'" ||
+  option outbound 'direct-out'"
+        } || {
           template+="
   option outbound 'routing_node_${key}'"
+        }
       fi
 
       if [ "$key" = "reject_out" ]; then
@@ -312,28 +322,29 @@ gen_rules_config() {
   option label '${keyword}_${key}_blocked'
   option enabled '1'
   option mode 'default'"
-        [ "$config_type" = "outbound" ] && \
+        [ "$config_type" = "outbound" ] && {
           template+="
   option outbound 'block-out'
   option rule_set_ipcidr_match_source '0'
   option source_ip_is_private '0'
-  option ip_is_private '0'" || \
+  option ip_is_private '0'"
+        } || {
           template+="
   option server 'block-dns'"
+        }
       fi
 
       if [ "$config_type" = "dns" ]; then
         local rulesets_count=0
         for value in "${config_values[@]}"; do
-            grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value" && ((rulesets_count++))
+          grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value" && ((rulesets_count++))
         done
-        # Skip if the ruleset has only one URL, and that URL is an IP-based ruleset.
+        # Bypass if the ruleset has only one URL, and that URL is an IP-based ruleset.
         [ "$rulesets_count" -eq ${#config_values[@]} ] && continue
         template=$(match_server_for_dns_rule "$template" "$key")
       fi
 
       printf "%s\n" "$template" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-
       for value in "${config_values[@]}"; do
         [ "$config_type" = "dns" ] && { grep -q "geoip" <<<"$value" || grep -q "ip" <<<"$value"; } && continue
         printf "  list rule_set '%s'\n" "$value" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -344,12 +355,10 @@ gen_rules_config() {
 }
 
 gen_routing_nodes_config() {
-
   for key in ${RULESET_CONFIG_KEY_ORDER_ARRAY[@]}; do
     if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then
       continue
     fi
-
     printf "config routing_node 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option label routing_node_%s\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
@@ -359,8 +368,9 @@ gen_routing_nodes_config() {
 }
 
 upgrade_sing_box_core() {
-  [[ "$UPGRADE_SING_BOX_VERSION" != "y" ]] && return 0
+  [ "$UPGRADE_SING_BOX_VERSION" != "y" ] && return 0
 
+  echo -n "------ Upgrading sing-box to the latest version (This may take some time, please wait)......"
   local arch=$(uname -m)
   case "$arch" in
     x86_64) arch="amd64" ;;
@@ -368,30 +378,25 @@ upgrade_sing_box_core() {
     armv7l | armv7) arch="armv7" ;;
     armv6l | armv6) arch="armv6" ;;
     i386 | i686) arch="386" ;;
-    *) echo "\e[33mWARN: Unsupported architecture: $arch. Skipping the upgrade process.\e[0m" ; return 1 ;;
+    *) echo "" && log_warn "The ${arch} architecture is unsupported, bypassing..." ; return 1 ;;
   esac
 
-  echo -n "------ Upgrading sing-box to the latest version (This may take some time, please wait)..."
   local response=$(curl -fs --max-time 5 "$SING_BOX_API_URL")
-  local failed_msg="\e[33mWARN: Failed to establish connection with the remote repository. Skipping the upgrade process.\e[0m"
-  if [[ -z "$response" ]]; then
+  local failed_msg="Failed to establish connection with the remote repository, bypassing..."
+  if [ -z "$response" ]; then
     response=$(curl -fs --max-time 5 "$SING_BOX_MIRROR_API_URL")
-    if [[ -z "$response" ]]; then
-      echo ""
-      echo -e "$failed_msg"
-      return 1
-    fi
+    [ -z "$response" ] && echo "" && log_warn "$failed_msg" && return 1
   fi
 
   local latest_tag=$(echo "$response" | jq -r '.[].name' | head -n 1)
-  [[ -z "$latest_tag" ]] && echo -e "$failed_msg" && return 1
+  [ -z "$latest_tag" ] && echo -e "$failed_msg" && return 1
   local current_version=$(sing-box version | awk 'NR==1 {print $3}')
-  [[ "$current_version" == "${latest_tag#v}" ]] && echo -e "\e[32mYour sing-box version is up-to-date --> $latest_tag!\e[0m" && return 0
+  [[ "$current_version" == "${latest_tag#v}" ]] && echo -en "\n\e[32mYour sing-box version is up-to-date --> $latest_tag!\e[0m" && return 0
 
   local full_link="$MIRROR_PREFIX_URL/https://github.com/$SING_BOX_REPO/releases/download/$latest_tag/sing-box-${latest_tag#v}-linux-$arch.tar.gz"
   local file_name=$(basename "$full_link")
   curl -sL -o "$file_name" "$full_link"
-  [[ $? -ne 0 ]] && return 1
+  [ $? -ne 0 ] && return 1
 
   tar -zxf "$file_name"
   cp "${file_name%.tar.gz}"/sing-box /usr/bin/sing-box
@@ -406,8 +411,16 @@ gen_homeproxy_config() {
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER_ARRAY
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER_ARRAY
 
+  upgrade_sing_box_core
+  echo ""
+
+  if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
+    mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
+    echo -e "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' is backed up to ---> \e[32m$TARGET_HOMEPROXY_CONFIG_PATH.bak\e[0m"
+  fi
+
   # Use the standard homeproxy configuration template as a guarantee.
-  download_original_config_file
+  fetch_homeproxy_config_file
   # Pull all nodes from the subscription servers if specified.
   subscribe
   gen_public_config
@@ -428,16 +441,51 @@ gen_homeproxy_config() {
   echo -n "------ Configuring routing nodes..."
   gen_routing_nodes_config
   echo "done!"
-
-  upgrade_sing_box_core
-  echo ""
   
   local lan_ipv4_addr
   lan_ipv4_addr=$(ubus call network.interface.lan status | grep '\"address\"\: \"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' || true)
-  [ -n "$lan_ipv4_addr" ] && \
-    echo -e "Script execution is complete. Please visit http://$lan_ipv4_addr/cgi-bin/luci/admin/services/homeproxy to see the difference!\n" || \
-    echo -e "Script execution is complete.!\n"
+  [ -n "$lan_ipv4_addr" ] && {
+    echo -e "\nThe execution of the script has finished ---> https://$lan_ipv4_addr/cgi-bin/luci/admin/services/homeproxy\n"
+  } || echo -e "\nThe execution of the script has finished!\n"
 }
+
+entrance() {
+  if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]]; then
+    log_error "The RULESET_URLS array wasn't found in the 'rules.sh' file, or it contains no valid elements at all. ARE YOU KIDDING ME?"
+    log_error "Exiting..."
+    exit 1
+  fi
+  if [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
+    log_error "The DNS_SERVERS array wasn't found in the 'rules.sh' file, or it contains no valid elements at all. ARE YOU KIDDING ME?"
+    log_error "Exiting..."
+    exit 1
+  fi
+
+  echo ""
+  echo ""
+  echo -e "\e[32m*******************************************************************************************"
+  echo ""
+  echo ""
+  echo ""
+  echo ""
+  echo "    A portable script to auto-generate homeproxy interface configuration transparently."
+  echo ""
+  echo ""
+  echo ""
+  echo ""
+  echo -e "*******************************************************************************************\e[0m"
+  echo ""
+  log_warn "Please make sure that you have backed up the /etc/config/homeproxy file in advance!"
+  log_warn "Running the script will overwrite the backup file from the previous execution."
+  echo ""
+  echo ""
+  read -p "Do you want to upgrade the sing-box to the latest version? (y/n): " UPGRADE_SING_BOX_VERSION
+  echo ""
+  
+  UPGRADE_SING_BOX_VERSION=$( [ "$UPGRADE_SING_BOX_VERSION" == "y" ] && echo "$UPGRADE_SING_BOX_VERSION" || echo "n" )
+}
+
+. rules.sh
 
 declare -A RULESET_MAP
 declare -a RULESET_MAP_KEY_ORDER_ARRAY
@@ -449,39 +497,6 @@ declare -a RULESET_CONFIG_KEY_ORDER_ARRAY
 
 DEFAULT_GLOBAL_OUTBOUND="direct-out"
 UPGRADE_SING_BOX_VERSION="y"
-
-entrance() {
-  if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]] ||
-    [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
-    echo "ERROR: Error(s) detected in rules.sh. The script will now exit!"
-    exit 1
-  fi
-
-  echo ""
-  echo ""
-  echo -e "\e[32m***********************************************************************"
-  echo ""
-  echo ""
-  echo ""
-  echo "      ImmortalWRT (OpenWRT) homeproxy one-click generation script.     "
-  echo ""
-  echo ""
-  echo ""
-  echo -e "***********************************************************************\e[0m"
-  echo ""
-  echo -e "\e[33mWARN: Please make sure that you have backed up the /etc/config/homeproxy file in advance!\e[0m"
-  echo -e "\e[33m      Running the script will overwrite the backup file from the previous execution.\e[0m"
-  echo ""
-  echo ""
-  read -p "Do you want to upgrade the sing-box core file to the latest version? (y/n): " UPGRADE_SING_BOX_VERSION
-  echo ""
-  UPGRADE_SING_BOX_VERSION=$( [[ "$UPGRADE_SING_BOX_VERSION" == "y" ]] && echo "$UPGRADE_SING_BOX_VERSION" || echo "n" )
-
-  if [ -f "$TARGET_HOMEPROXY_CONFIG_PATH" ]; then
-    mv "$TARGET_HOMEPROXY_CONFIG_PATH" "$TARGET_HOMEPROXY_CONFIG_PATH.bak"
-    echo -e "------ The file '$TARGET_HOMEPROXY_CONFIG_PATH' is backed up to ---> \e[32m$TARGET_HOMEPROXY_CONFIG_PATH.bak\e[0m"
-  fi
-}
 
 entrance
 gen_homeproxy_config
