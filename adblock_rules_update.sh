@@ -1,19 +1,25 @@
 #!/bin/bash
 
-
-# Note: This operation will consume a large quantity of CPU resources!
-
 ###
+###
+###
+### Note: This operation will consume a large quantity of CPU resources!
+### Note: This operation will consume a large quantity of CPU resources!
+### Note: This operation will consume a large quantity of CPU resources!
+###
+###
+###
+
 MIRROR_PREFIX="https://ghgo.xyz"
-AUTO_UPDATE_TIME="0 4 * * *"
+CRONTAB_EXPR="11 4 * * * bash '/etc/home''proxy/adblock_rules_update.sh'" # See https://github.com/immortalwrt/homeproxy/issues/161
 URLS=(
   # Only GitHub links are supported for now.
   "https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblockdns.txt"
-  "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/refs/heads/master/anti-ad-adguard.txt"
+  # "https://raw.githubusercontent.com/privacy-protection-tools/anti-AD/refs/heads/master/anti-ad-adguard.txt"
 
   # More...
 )
-###
+
 
 DEST_DIR="/etc/homeproxy/ruleset"
 LOG_FILE_PATH="${DEST_DIR}/convert.log"
@@ -79,14 +85,11 @@ convert_rules() {
 
 register_crontab() {
   sed -i "/adblock_rules_update/d" "/etc/crontabs/root" 2>"/dev/null"
-  echo -e "$AUTO_UPDATE_TIME cd '/etc/home''proxy' && bash adblock_rules_update.sh" >> "/etc/crontabs/root"
+  echo -e "$CRONTAB_EXPR" >> "/etc/crontabs/root"
   /etc/init.d/cron restart >"/dev/null" 2>&1
 }
 
 entrance() {
-  sleep 5
-  DOWNLOAD_PROCESS_STOPPED=0
-
   begin_time=$(date +%s)
   
   truncate_log_file
@@ -100,6 +103,7 @@ entrance() {
 
 TXT_TEMP_OUTPUT_FILE="${DEST_DIR}/adblock.txt"
 SRS_TMP_OUTPUT_FILE="${DEST_DIR}/adblockdns_tmp.srs"
+DOWNLOAD_PROCESS_STOPPED=0
 
-register_crontab
 entrance
+register_crontab
