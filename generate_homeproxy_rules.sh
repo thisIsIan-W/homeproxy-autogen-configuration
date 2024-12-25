@@ -188,8 +188,9 @@ gen_rule_sets_config() {
         rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
       }
 
-      if grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name" || 
-         grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name"; then
+      if grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name"; then
+        rule_name="geoip_${rule_name}"
+      elif grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name"; then
         rule_name="geoip_${rule_name}"
       elif grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name"; then
         rule_name="geosite_${rule_name}"
@@ -308,13 +309,13 @@ gen_rules_config() {
   option source_ip_is_private '0'
   option ip_is_private '0'
   option rule_set_ipcidr_match_source '0'"
-        [ "$key" = "direct_out" ] && {
+        if [ "$key" = "direct_out" ]; then
           template+="
   option outbound 'direct-out'"
-        } || {
+        else
           template+="
   option outbound 'routing_node_${key}'"
-        }
+        fi
       fi
 
       if [ "$key" = "reject_out" ]; then
@@ -322,16 +323,16 @@ gen_rules_config() {
   option label '${keyword}_${key}_blocked'
   option enabled '1'
   option mode 'default'"
-        [ "$config_type" = "outbound" ] && {
+        if [ "$config_type" = "outbound" ]; then
           template+="
   option outbound 'block-out'
   option rule_set_ipcidr_match_source '0'
   option source_ip_is_private '0'
   option ip_is_private '0'"
-        } || {
+        else
           template+="
   option server 'block-dns'"
-        }
+        fi
       fi
 
       if [ "$config_type" = "dns" ]; then
