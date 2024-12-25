@@ -40,7 +40,7 @@ RULESET_URLS=(
   https://raw.githubusercontent.com/SagerNet/sing-geosite/refs/heads/rule-set/geosite-bing.srs
   https://raw.githubusercontent.com/KaringX/karing-ruleset/sing/geo/geoip/ai.srs"
 
-  "SG_proxy_server_02|
+  "SG_IPv6_proxy_server_02|
   https://raw.githubusercontent.com/SagerNet/sing-geosite/refs/heads/rule-set/geosite-discord.srs
   https://raw.githubusercontent.com/SagerNet/sing-geosite/refs/heads/rule-set/geosite-twitch.srs
   https://raw.githubusercontent.com/SagerNet/sing-geosite/refs/heads/rule-set/geosite-amazon.srs
@@ -64,18 +64,10 @@ RULESET_URLS=(
 
 
 DNS_SERVERS=(
+  "HK_proxy_server_01|https://1.1.1.1/dns-query"
+  "SG_proxy_server_01|https://1.1.1.1/dns-query"
+  "SG_IPv6_proxy_server_02|https://1.1.1.1/dns-query"
+  "US_proxy_server_02|https://1.1.1.1/dns-query"
 
-  "HongKong_common_your_suffix|Your_dns_server_url"
-  "HongKong_others_your_suffix|Your_dns_server_url"
-  "Japan_01|Your_dns_server_url"
-  "USA|Your_dns_server_url"
-  "google_ruleset01|Your_dns_server_url"
-  "google_ruleset02|Your_dns_server_url"
-
-  # The first URL in the last tag of this array will be the default dns server's URL.
-  # In this case, Your_dns_server_url1 will be chosen to be the one.
-  "backup_servers|
-  Your_dns_server_url1
-  Your_dns_server_url2
-  Your_dns_server_url3"
+  "default_dns_server|https://8.8.8.8/dns-query"
 )
