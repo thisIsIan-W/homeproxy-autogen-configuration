@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
+#
+# Copyright (C) 2024 thisIsIan-W
 
 # You can change it to another available link if the existing one is not reachable.
 MIRROR_PREFIX_URL="https://ghp.p3terx.com"
