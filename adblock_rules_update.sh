@@ -10,7 +10,7 @@
 ###
 ###
 
-MIRROR_PREFIX="https://ghgo.xyz"
+MIRROR_PREFIX="https://ghp.p3terx.com"
 CRONTAB_EXPR="11 4 * * * bash '/etc/home''proxy/adblock_rules_update.sh'" # See https://github.com/immortalwrt/homeproxy/issues/161
 URLS=(
   # Only GitHub links are supported for now.
@@ -19,13 +19,6 @@ URLS=(
 
   # More...
 )
-
-
-DEST_DIR="/etc/homeproxy/ruleset"
-LOG_FILE_PATH="${DEST_DIR}/convert.log"
-SRS_OUTPUT_FILE_PATH="${DEST_DIR}/adblockdns.srs"
-TIME_LIMIT_PER_EXECUTION=300
-MAX_LOG_FILE_SIZE_KB=1024
 
 write_log() {
   echo -e "$(date +'%Y-%m-%d %H:%M:%S') [INFO] $*" >>"$LOG_FILE_PATH"
@@ -104,6 +97,12 @@ entrance() {
 TXT_TEMP_OUTPUT_FILE="${DEST_DIR}/adblock.txt"
 SRS_TMP_OUTPUT_FILE="${DEST_DIR}/adblockdns_tmp.srs"
 DOWNLOAD_PROCESS_STOPPED=0
+
+DEST_DIR="/etc/homeproxy/ruleset"
+LOG_FILE_PATH="${DEST_DIR}/convert.log"
+SRS_OUTPUT_FILE_PATH="${DEST_DIR}/adblockdns.srs"
+TIME_LIMIT_PER_EXECUTION=300
+MAX_LOG_FILE_SIZE_KB=1024
 
 entrance
 register_crontab
