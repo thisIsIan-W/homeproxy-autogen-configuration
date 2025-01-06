@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # You can change it to another available link if the existing one is not reachable.
-MIRROR_PREFIX_URL="https://ghgo.xyz"
+MIRROR_PREFIX_URL="https://ghp.p3terx.com"
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
 
