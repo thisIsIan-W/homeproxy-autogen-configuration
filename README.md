@@ -2,18 +2,40 @@
 
 
 
-homeproxy 配置生成脚本。
+An alternative way to generate your dedicated [homeproxy](https://github.com/immortalwrt/homeproxy) configuration and simplify the setup process significantly.
 
-请参考 main 分支脚本 (基于 [homeproxy](https://github.com/immortalwrt/homeproxy) 插件)！请参阅 [说明书](https://thisisian-w.github.io/2024/10/30/homeproxy-one-click-configure-scripts) 定制并一键生成你的 homeproxy 配置。
+Steps:
+
+* Customize your dedicated configurations via GitHub repository, Gist or some other available links by referring to the `rules.sh` script;
+* Execute the given script on your ImmortalWrt/OpenWrt(23.05.x+) system:
+
+```bash
+bash "$(curl -kfsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-autogen-configuration/refs/heads/main/generate_homeproxy_rules.sh)"
+```
+
+* You will be asked for the link of your exclusive `rules.sh` script during the execution.
+* Done!
+
+Please submit an issue for the purpose of soliciting feedback.
+
+<br/>
+
+<br/>
+
+一个更方便地生成 ImmortalWrt/OpenWrt(23.05.x+) [homeproxy](https://github.com/immortalwrt/homeproxy) 插件大多数常用配置的脚本。
+
+使用步骤：
+
+* 通过 GitHub 仓库、Gist 或其它可被正常访问的链接定制你的专属 `rule.sh` 配置内容(可参考本仓库下的 `rules.sh` 脚本)；
+* 执行以下命令：
+
+```bash
+bash "$(curl -kfsSl https://ghp.p3terx.com/https://raw.githubusercontent.com/thisIsIan-W/homeproxy-autogen-configuration/refs/heads/main/generate_homeproxy_rules.sh)"
+```
+
+* 脚本执行期间会要求你提供定制好的配置链接；
+* 完成！
+
+更多细节，请参阅 [说明书](https://thisisian-w.github.io/2024/10/30/homeproxy-one-click-configure-scripts) 。
 
 任何问题，请直接提 issue！
-
-<br/>
-
-<br/>
-
-**注意：**
-
-本仓库 deprecated 分支代码基于 [homeproxy](https://github.com/muink/homeproxy) 版插件，支持 Clash API、selector、url-select 等特性。但由于该仓库已停更，遂本仓库不再维护该分支代码。
-
-如果你希望继续使用它，请手动切换到 deprecated 分支并参考分支内 wiki 链接! (未来可能会移除该分支)
