@@ -50,7 +50,6 @@ Please submit an issue for the purpose of soliciting feedback.
 bash -c "$(curl -kfsSl https://ghp.p3terx.com/https://raw.githubusercontent.com/thisIsIan-W/homeproxy-autogen-configuration/refs/heads/main/generate_homeproxy_rules.sh)"
 ```
 
-* 脚本执行期间会要求你提供定制好的配置链接；
 * 完成！
 
 更多细节，请参阅 [说明书](https://thisisian-w.github.io/2024/10/30/homeproxy-one-click-configure-scripts) 。
