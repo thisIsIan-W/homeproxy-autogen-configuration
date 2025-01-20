@@ -13,6 +13,15 @@ An alternative way to generate your dedicated [homeproxy](https://github.com/imm
 
 ### Steps
 
+Prepare the runtime environment necessary for the script execution via (Skip this step if it has already been prepared):
+
+```bash
+opkg update
+opkg install bash jq curl
+```
+
+, then:
+
 * (Required) Customize your dedicated [rules.sh](https://gist.github.com/thisIsIan-W/3d4343c6e61e49f4c5ae6aa9115045bf) configuration by using Secret Gist or other private links;
 * Execute the given script on your ImmortalWrt/OpenWrt(23.05.x+) system (You will be asked for the URL of your dedicated 'rules.sh' script during the execution):
 
@@ -22,13 +31,13 @@ bash -c "$(curl -kfsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-a
 
 * Done!
 
-Please submit an issue for the purpose of soliciting feedback.
-
 <br/>
 
 <br/>
 
 ---
+
+<br/>
 
 ## 中文
 
@@ -43,6 +52,15 @@ Please submit an issue for the purpose of soliciting feedback.
 
 ### 使用步骤
 
+准备脚本运行时所需环境（如已准备，则跳过此步）：
+
+```bash
+opkg update
+opkg install bash jq curl
+```
+
+，然后：
+
 * (必备) 通过私密 Gist 或其它可被正常访问的私有链接定制你的专属 [rules.sh](https://gist.github.com/thisIsIan-W/3d4343c6e61e49f4c5ae6aa9115045bf) 配置内容；
 * 执行以下命令（脚本执行期间会向你索要你的定制配置URL）：
 
@@ -53,5 +71,3 @@ bash -c "$(curl -kfsSl https://ghp.p3terx.com/https://raw.githubusercontent.com/
 * 完成！
 
 更多细节，请参阅 [说明书](https://thisisian-w.github.io/2024/10/30/homeproxy-one-click-configure-scripts) 。
-
-任何问题，请直接提 issue！
