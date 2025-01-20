@@ -93,7 +93,7 @@ subscribe() {
   local hp_log_file="/var/run/$UCI_GLOBAL_CONFIG/$UCI_GLOBAL_CONFIG.log"
   [ -f "$hp_log_file" ] && > "$hp_log_file"
 
-  echo -n "------ Updating subscriptions (This may take some time, please wait) ......"
+  echo -n "------ Updating subscriptions (May take some time, please wait.) ......"
   for sub_url in ${SUBSCRIPTION_URLS[@]}; do
     uci add_list $UCI_GLOBAL_CONFIG.subscription.subscription_url=$sub_url
   done
@@ -411,26 +411,32 @@ upgrade_sing_box_core() {
   echo -e "done! \e[32mSing-box is upgraded to $latest_tag.\e[0m"
 }
 
-get_dedicated_configuration() {
-  if [ -z "$DEDICATED_RULES_LINK" ]; then
-    log_error "Missing configuration link, exiting..."
-    exit 1
-  fi
-
-  DECICATED_RULES=$(curl -kfsSl --max-time 5 "$DEDICATED_RULES_LINK")
+eval_dedicated_configuration() {
+  DECICATED_RULES=$(curl -kfsSl --max-time 8 "$DEDICATED_RULES_LINK")
   if [ $? -ne 0 ]; then
-    DECICATED_RULES=$(curl -kfsSl --max-time 5 "$MIRROR_PREFIX_URL/$DEDICATED_RULES_LINK")
+    DECICATED_RULES=$(curl -kfsSl --max-time 8 "$MIRROR_PREFIX_URL/$DEDICATED_RULES_LINK")
     if [ $? -ne 0 ]; then
-      echo "Failed to download the script from $DEDICATED_RULES_LINK"
+      log_error "Failed to fetch the configuration from $DEDICATED_RULES_LINK."
+      log_error "This might be due to network issues. Please check your network connection, firewall settings, and ensure that the URL is accessible."
       exit 1
     fi
   fi
-
   eval "$DECICATED_RULES"
+
+  if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]]; then
+    log_error "The RULESET_URLS array wasn't found in the specified configuration, or it contains no valid elements at all. Please review your configuration!"
+    log_error "Exiting..."
+    exit 1
+  fi
+  if [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
+    log_error "The DNS_SERVERS array wasn't found in the specified configuration, or it contains no valid elements at all. Please review your configuration!"
+    log_error "Exiting..."
+    exit 1
+  fi
 }
 
 gen_homeproxy_config() {
-  get_dedicated_configuration
+  eval_dedicated_configuration
 
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER_ARRAY
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER_ARRAY
@@ -474,17 +480,6 @@ gen_homeproxy_config() {
 }
 
 entrance() {
-  if [[ -z "${RULESET_URLS+x}" ]] || [[ "${#RULESET_URLS[@]}" -le 0 ]]; then
-    log_error "The RULESET_URLS array wasn't found in the 'rules.sh' file, or it contains no valid elements at all. ARE YOU KIDDING ME?"
-    log_error "Exiting..."
-    exit 1
-  fi
-  if [[ -z "${DNS_SERVERS+x}" ]] || [[ "${#DNS_SERVERS[@]}" -le 0 ]]; then
-    log_error "The DNS_SERVERS array wasn't found in the 'rules.sh' file, or it contains no valid elements at all. ARE YOU KIDDING ME?"
-    log_error "Exiting..."
-    exit 1
-  fi
-
   echo ""
   echo ""
   echo -e "\e[32m*******************************************************************************************"
@@ -503,14 +498,16 @@ entrance() {
   log_warn "Running the script will overwrite the backup file from the previous execution."
   echo ""
   echo ""
-  read -p "Please provide the link to your dedicated configuration file: " DEDICATED_RULES_LINK
-  read -p "Do you want to upgrade the sing-box to the latest version? (y/n): " UPGRADE_SING_BOX_VERSION
+  read -p "Please provide the URL to your dedicated configuration file: " DEDICATED_RULES_LINK
+  if [ -z "$DEDICATED_RULES_LINK" ]; then
+    log_error "The required configuration URL is missing. The script cannot proceed without it, and will now exit."
+    exit 1
+  fi
+  read -p "Would you like to upgrade the sing-box to the latest version? (y/n): " UPGRADE_SING_BOX_VERSION
   echo ""
   
   UPGRADE_SING_BOX_VERSION=$( [ "$UPGRADE_SING_BOX_VERSION" == "y" ] && echo "$UPGRADE_SING_BOX_VERSION" || echo "n" )
 }
-
-# . rules.sh
 
 declare -A RULESET_MAP
 declare -a RULESET_MAP_KEY_ORDER_ARRAY
