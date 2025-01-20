@@ -411,7 +411,27 @@ upgrade_sing_box_core() {
   echo -e "done! \e[32mSing-box is upgraded to $latest_tag.\e[0m"
 }
 
+get_dedicated_configuration() {
+  if [ -z "$DEDICATED_RULES_LINK" ]; then
+    log_error "Missing configuration link, exiting..."
+    exit 1
+  fi
+
+  DECICATED_RULES=$(curl -kfsSl --max-time 5 "$DEDICATED_RULES_LINK")
+  if [ $? -ne 0 ]; then
+    DECICATED_RULES=$(curl -kfsSl --max-time 5 "$MIRROR_PREFIX_URL/$DEDICATED_RULES_LINK")
+    if [ $? -ne 0 ]; then
+      echo "Failed to download the script from $DEDICATED_RULES_LINK"
+      exit 1
+    fi
+  fi
+
+  eval "$DECICATED_RULES"
+}
+
 gen_homeproxy_config() {
+  get_dedicated_configuration
+
   config_map RULESET_URLS RULESET_MAP RULESET_MAP_KEY_ORDER_ARRAY
   config_map DNS_SERVERS DNS_SERVERS_MAP DNS_SERVERS_MAP_KEY_ORDER_ARRAY
 
@@ -483,6 +503,7 @@ entrance() {
   log_warn "Running the script will overwrite the backup file from the previous execution."
   echo ""
   echo ""
+  read -p "Please provide the link to your dedicated configuration file: " DEDICATED_RULES_LINK
   read -p "Do you want to upgrade the sing-box to the latest version? (y/n): " UPGRADE_SING_BOX_VERSION
   echo ""
   
@@ -501,6 +522,8 @@ declare -a RULESET_CONFIG_KEY_ORDER_ARRAY
 
 DEFAULT_GLOBAL_OUTBOUND="direct-out"
 UPGRADE_SING_BOX_VERSION="y"
+DEDICATED_RULES_LINK=""
+DECICATED_RULES=""
 
 entrance
 gen_homeproxy_config
