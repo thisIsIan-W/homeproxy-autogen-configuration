@@ -510,7 +510,7 @@ entrance() {
   UPGRADE_SING_BOX_VERSION=$( [ "$UPGRADE_SING_BOX_VERSION" == "y" ] && echo "$UPGRADE_SING_BOX_VERSION" || echo "n" )
 }
 
-. rules.sh
+# . rules.sh
 
 declare -A RULESET_MAP
 declare -a RULESET_MAP_KEY_ORDER_ARRAY
