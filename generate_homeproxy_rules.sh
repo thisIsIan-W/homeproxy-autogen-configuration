@@ -412,9 +412,9 @@ upgrade_sing_box_core() {
 }
 
 eval_dedicated_configuration() {
-  DECICATED_RULES=$(curl -kfsSl --max-time 8 "$DEDICATED_RULES_LINK")
+  DECICATED_RULES=$(curl -kfsSl -H "Cache-Control: no-cache" --max-time 8 "$DEDICATED_RULES_LINK")
   if [ $? -ne 0 ]; then
-    DECICATED_RULES=$(curl -kfsSl --max-time 8 "$MIRROR_PREFIX_URL/$DEDICATED_RULES_LINK")
+    DECICATED_RULES=$(curl -kfsSl -H "Cache-Control: no-cache" --max-time 8 "$MIRROR_PREFIX_URL/$DEDICATED_RULES_LINK")
     if [ $? -ne 0 ]; then
       log_error "Failed to fetch the configuration from $DEDICATED_RULES_LINK."
       log_error "This might be due to network issues. Please check your network connection, firewall settings, and ensure that the URL is accessible."
