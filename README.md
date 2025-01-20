@@ -14,10 +14,9 @@ An alternative way to generate your dedicated [homeproxy](https://github.com/imm
 ### Steps
 
 * (Required) Customize your dedicated [rules.sh](https://gist.github.com/thisIsIan-W/3d4343c6e61e49f4c5ae6aa9115045bf) configuration by using Secret Gist or other private links;
-* Execute the given script on your ImmortalWrt/OpenWrt(23.05.x+) system:
+* Execute the given script on your ImmortalWrt/OpenWrt(23.05.x+) system (You will be asked for the URL of your dedicated 'rules.sh' script during the execution):
 
 ```bash
-# You will be asked for the URL of your dedicated 'rules.sh' script during the execution.
 bash -c "$(curl -kfsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-autogen-configuration/refs/heads/main/generate_homeproxy_rules.sh)"
 ```
 
@@ -45,10 +44,9 @@ Please submit an issue for the purpose of soliciting feedback.
 ### 使用步骤
 
 * (必备) 通过私密 Gist 或其它可被正常访问的私有链接定制你的专属 [rules.sh](https://gist.github.com/thisIsIan-W/3d4343c6e61e49f4c5ae6aa9115045bf) 配置内容；
-* 执行以下命令：
+* 执行以下命令（脚本执行期间会向你索要你的定制配置URL）：
 
 ```bash
-# 脚本执行期间会向你索要你的定制配置URL
 bash -c "$(curl -kfsSl https://ghp.p3terx.com/https://raw.githubusercontent.com/thisIsIan-W/homeproxy-autogen-configuration/refs/heads/main/generate_homeproxy_rules.sh)"
 ```
 
