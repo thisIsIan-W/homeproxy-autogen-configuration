@@ -65,7 +65,7 @@ opkg install bash jq curl
 * 执行以下命令（脚本执行期间会向你索要你的定制配置URL）：
 
 ```bash
-bash -c "$(curl -fsSl https://ghp.p3terx.com/https://raw.githubusercontent.com/thisIsIan-W/homeproxy-autogen-configuration/refs/heads/main/generate_homeproxy_rules.sh)"
+bash -c "$(curl -fsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-autogen-configuration/refs/heads/main/generate_homeproxy_rules.sh)"
 ```
 
 * 完成！
