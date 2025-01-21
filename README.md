@@ -22,7 +22,7 @@ opkg install bash jq curl
 
 , then:
 
-* (Required) Customize your dedicated [rules.sh](https://gist.github.com/thisIsIan-W/3d4343c6e61e49f4c5ae6aa9115045bf) configuration by using Secret Gist or other private links;
+* (Required) Customize your dedicated [rules.sh](https://gist.github.com/thisIsIan-W/2c582a751e56c1a3f36d9ce48e312b31) configuration by using Secret Gist or other private links;
 * Execute the given script on your ImmortalWrt/OpenWrt(23.05.x+) system (You will be asked for the URL of your dedicated 'rules.sh' script during the execution):
 
 ```bash
@@ -61,7 +61,7 @@ opkg install bash jq curl
 
 ，然后：
 
-* (必备) 通过私密 Gist 或其它可被正常访问的私有链接定制你的专属 [rules.sh](https://gist.github.com/thisIsIan-W/3d4343c6e61e49f4c5ae6aa9115045bf) 配置内容；
+* (必备) 通过私密 Gist 或其它可被正常访问的私有链接定制你的专属 [rules.sh](https://gist.github.com/thisIsIan-W/2c582a751e56c1a3f36d9ce48e312b31) 配置内容；
 * 执行以下命令（脚本执行期间会向你索要你的定制配置URL）：
 
 ```bash
