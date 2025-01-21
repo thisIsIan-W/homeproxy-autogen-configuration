@@ -6,13 +6,6 @@
 # You can change it to another available link if the existing one is not reachable.
 MIRROR_PREFIX_URL="https://ghp.p3terx.com"
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
-HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
-
-SING_BOX_REPO="SagerNet/sing-box"
-SING_BOX_API_URL="https://api.github.com/repos/$SING_BOX_REPO/tags"
-SING_BOX_MIRROR_API_URL="https://gh-api.p3terx.com/repos/$SING_BOX_REPO/tags"
-
-UCI_GLOBAL_CONFIG="homeproxy"
 
 to_upper() {
   echo -e "$1" | tr "[a-z]" "[A-Z]"
@@ -93,7 +86,7 @@ subscribe() {
   local hp_log_file="/var/run/$UCI_GLOBAL_CONFIG/$UCI_GLOBAL_CONFIG.log"
   [ -f "$hp_log_file" ] && > "$hp_log_file"
 
-  echo -n "------ Updating subscriptions (May take some time, please wait.) ......"
+  echo -n "------ Updating subscriptions (May take some time, please wait) ......"
   for sub_url in ${SUBSCRIPTION_URLS[@]}; do
     uci add_list $UCI_GLOBAL_CONFIG.subscription.subscription_url=$sub_url
   done
@@ -399,7 +392,7 @@ upgrade_sing_box_core() {
 
   local full_link="$MIRROR_PREFIX_URL/https://github.com/$SING_BOX_REPO/releases/download/$latest_tag/sing-box-${latest_tag#v}-linux-$arch.tar.gz"
   local file_name=$(basename "$full_link")
-  curl -sL -o "$file_name" "$full_link"
+  curl -fsSl -o "$file_name" "$full_link"
   [ $? -ne 0 ] && return 1
 
   tar -zxf "$file_name"
@@ -412,9 +405,9 @@ upgrade_sing_box_core() {
 }
 
 eval_dedicated_configuration() {
-  DECICATED_RULES=$(curl -kfsSl -H "Cache-Control: no-cache" --max-time 8 "$DEDICATED_RULES_LINK")
+  DECICATED_RULES=$(curl -fsSl -H "Cache-Control: no-cache" --max-time 8 "$DEDICATED_RULES_LINK")
   if [ $? -ne 0 ]; then
-    DECICATED_RULES=$(curl -kfsSl -H "Cache-Control: no-cache" --max-time 8 "$MIRROR_PREFIX_URL/$DEDICATED_RULES_LINK")
+    DECICATED_RULES=$(curl -fsSl -H "Cache-Control: no-cache" --max-time 8 "$MIRROR_PREFIX_URL/$DEDICATED_RULES_LINK")
     if [ $? -ne 0 ]; then
       log_error "Failed to fetch the configuration from $DEDICATED_RULES_LINK."
       log_error "This might be due to network issues. Please check your network connection, firewall settings, and ensure that the URL is accessible."
@@ -481,18 +474,18 @@ gen_homeproxy_config() {
 
 entrance() {
   echo ""
+  echo -e "\e[32m"
   echo ""
-  echo -e "\e[32m*******************************************************************************************"
+  echo "_______    _            _ _       ______                     "
+  echo "|__   __| | |          (_) |     |  ____|                   "
+  echo "  | | __ _| | _____     _| |_    | |__   __ _ ___ _   _      "
+  echo "  | |/ _  | |/ / _ \   | | __|   |  __| / _  / __| | | |     "
+  echo "  | | (_| |   <  __/   | | |_    | |___| (_| \__ \ |_| |   _ "
+  echo "  |_|\__,_|_|\_\___|   |_|\__|   |______\__,_|___/\__, |  (_)"
+  echo "                                                   __/ |     "
+  echo "                                                  |___/      "
   echo ""
-  echo ""
-  echo ""
-  echo ""
-  echo "    A portable script to auto-generate homeproxy interface configuration transparently."
-  echo ""
-  echo ""
-  echo ""
-  echo ""
-  echo -e "*******************************************************************************************\e[0m"
+  echo -e "\e[0m"
   echo ""
   log_warn "Please make sure that you have backed up the /etc/config/homeproxy file in advance!"
   log_warn "Running the script will overwrite the backup file from the previous execution."
@@ -521,6 +514,12 @@ DEFAULT_GLOBAL_OUTBOUND="direct-out"
 UPGRADE_SING_BOX_VERSION="y"
 DEDICATED_RULES_LINK=""
 DECICATED_RULES=""
+
+UCI_GLOBAL_CONFIG="homeproxy"
+HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
+SING_BOX_REPO="SagerNet/sing-box"
+SING_BOX_API_URL="https://api.github.com/repos/$SING_BOX_REPO/tags"
+SING_BOX_MIRROR_API_URL="https://gh-api.p3terx.com/repos/$SING_BOX_REPO/tags"
 
 entrance
 gen_homeproxy_config
