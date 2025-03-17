@@ -3,8 +3,6 @@
 #
 # Copyright (C) 2024 thisIsIan-W
 
-# You can change it to another available link if the existing one is not reachable.
-MIRROR_PREFIX_URL="https://ghp.p3terx.com"
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 
 to_upper() {
@@ -55,6 +53,7 @@ config_map() {
 fetch_homeproxy_config_file() {
   echo -n "------ Fetching the original homeproxy file from GitHub......"
   local download_count=0
+  [ -n "$GLOBAL_GITHUB_PROXY_URL" ] && HOMEPROXY_CONFIG_URL="$GLOBAL_GITHUB_PROXY_URL/$HOMEPROXY_CONFIG_URL"
   while true; do
     ((download_count++))
 
@@ -207,7 +206,11 @@ gen_rule_sets_config() {
       } || {
         printf "  option type 'remote'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
         printf "  option update_interval '24h'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option url '%s/%s'\n" "$MIRROR_PREFIX_URL" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        [ -n "$GLOBAL_GITHUB_PROXY_URL" ] && { 
+          printf "  option url '%s/%s'\n" "$GLOBAL_GITHUB_PROXY_URL" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        } || {
+          printf "  option url '%s'\n" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+        }
       }
       local extension="${tmp_rule_name##*.}"
       [ "$extension" = "srs" ] && {
@@ -390,7 +393,8 @@ upgrade_sing_box_core() {
   local current_version=$(sing-box version | awk 'NR==1 {print $3}')
   [[ "$current_version" == "${latest_tag#v}" ]] && echo -en "\n\e[32mYour sing-box version is up-to-date --> $latest_tag!\e[0m" && return 0
 
-  local full_link="$MIRROR_PREFIX_URL/https://github.com/$SING_BOX_REPO/releases/download/$latest_tag/sing-box-${latest_tag#v}-linux-$arch.tar.gz"
+  local full_link="https://github.com/$SING_BOX_REPO/releases/download/$latest_tag/sing-box-${latest_tag#v}-linux-$arch.tar.gz"
+  [ -n "$GLOBAL_GITHUB_PROXY_URL" ] && full_link="$GLOBAL_GITHUB_PROXY_URL/https://github.com/$SING_BOX_REPO/releases/download/$latest_tag/sing-box-${latest_tag#v}-linux-$arch.tar.gz"
   local file_name=$(basename "$full_link")
   curl -fsSl -o "$file_name" "$full_link"
   [ $? -ne 0 ] && return 1
@@ -513,7 +517,7 @@ DEDICATED_RULES_LINK=""
 DECICATED_RULES=""
 
 UCI_GLOBAL_CONFIG="homeproxy"
-HOMEPROXY_CONFIG_URL="$MIRROR_PREFIX_URL/https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
+HOMEPROXY_CONFIG_URL="https://raw.githubusercontent.com/immortalwrt/homeproxy/master/root/etc/config/homeproxy"
 SING_BOX_REPO="SagerNet/sing-box"
 SING_BOX_API_URL="https://api.github.com/repos/$SING_BOX_REPO/tags"
 SING_BOX_MIRROR_API_URL="https://gh-api.p3terx.com/repos/$SING_BOX_REPO/tags"
