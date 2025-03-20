@@ -23,9 +23,7 @@ match_node() {
   local tmp_key_to_match
   properly_matched_node_name=""
   for tmp_key_to_match in "${array_to_match[@]}"; do
-    local t_key=$(to_upper "$key")
-    local t_key_to_match=$(to_upper "$tmp_key_to_match")
-    if [[ "$t_key" == "$t_key_to_match"* ]]; then
+    if [[ "${key^^}" == "${tmp_key_to_match^^}"* ]]; then
       properly_matched_node_name="$tmp_key_to_match"
       break
     fi
@@ -179,17 +177,13 @@ gen_rule_sets_config() {
       local rule_name_suffix="${tmp_rule_name##*.}"
 
       # Note that the character '-' should not be placed in the middle
-      echo "$rule_name" | grep -q '[-.*#@!&]' && {
-        rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
-      }
+      echo "$rule_name" | grep -q '[-.*#@!&]' && rule_name=$(echo "$rule_name" | sed 's/[-.*#@!&]/_/g')
 
-      if grep -q "geoip" <<<"$url" && ! grep -q "geoip" <<<"$rule_name"; then
-        rule_name="geoip_${rule_name}"
-      elif grep -q "ip" <<<"$url" && ! grep -q "ip" <<<"$rule_name"; then
-        rule_name="geoip_${rule_name}"
-      elif grep -q "geosite" <<<"$url" && ! grep -q "geosite" <<<"$rule_name"; then
-        rule_name="geosite_${rule_name}"
-      fi
+      case "$url" in
+        *"geoip"*)   [[ ! "$rule_name" == *"geoip"* ]]     && rule_name="geoip_${rule_name}" ;;
+        *"ip"*)      [[ ! "$rule_name" == *"ip"* ]]        && rule_name="geoip_${rule_name}" ;;
+        *"geosite"*) [[ ! "$rule_name" == *"geosite"* ]]   && rule_name="geosite_${rule_name}" ;;
+      esac
 
       [ -n "${RULESET_CONFIG_MAP["$key"]}" ] && {
         RULESET_CONFIG_MAP["$key"]="${RULESET_CONFIG_MAP["$key"]},$rule_name"
@@ -197,27 +191,28 @@ gen_rule_sets_config() {
         RULESET_CONFIG_MAP["$key"]="$rule_name"
       }
 
-      printf "config ruleset '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option label '%s'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option enabled '1'\n" "$rule_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      [ "$file_type" -eq 1 ] && {
-        printf "  option type 'local'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option path '%s'\n" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      } || {
-        printf "  option type 'remote'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        printf "  option update_interval '24h'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-        [ -n "$GLOBAL_GITHUB_PROXY_URL" ] && { 
-          printf "  option url '%s/%s'\n" "$GLOBAL_GITHUB_PROXY_URL" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      {
+        printf "config ruleset '%s'\n" "$rule_name"
+        printf "  option label '%s'\n" "$rule_name"
+        printf "  option enabled '1'\n"
+        if [ "$file_type" -eq 1 ]; then
+          printf "  option type 'local'\n"
+          printf "  option path '%s'\n" "$url"
+        else
+          printf "  option type 'remote'\n"
+          printf "  option update_interval '24h'\n"
+          [ -n "$GLOBAL_GITHUB_PROXY_URL" ] \
+            && printf "  option url '%s/%s'\n" "$GLOBAL_GITHUB_PROXY_URL" "$url" \
+            || printf "  option url '%s'\n" "$url"
+        fi
+
+        local extension="${tmp_rule_name##*.}"
+        [ "$extension" = "srs" ] && {
+          printf "  option format 'binary'\n\n"
         } || {
-          printf "  option url '%s'\n" "$url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+          printf "  option format 'source'\n\n"
         }
-      }
-      local extension="${tmp_rule_name##*.}"
-      [ "$extension" = "srs" ] && {
-        printf "  option format 'binary'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      } || {
-        printf "  option format 'source'\n\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      }
+      } >>"$TARGET_HOMEPROXY_CONFIG_PATH"
     done
   done
 }
@@ -232,20 +227,22 @@ gen_dns_server_config() {
       local dns_server_name
       [ "$dns_server_element_count" -eq 1 ] && dns_server_name="${dns_key}" || dns_server_name="${dns_key}_${server_url_count}"
 
-      printf "config dns_server 'dns_server_%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option label 'dns_server_%s'\n" "$dns_server_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option address '%s'\n" "$server_url" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option address_resolver 'default-dns'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option address_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option resolve_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+      {
+        printf "config dns_server 'dns_server_%s'\n" "$dns_server_name"
+        printf "  option label 'dns_server_%s'\n" "$dns_server_name"
+        printf "  option address '%s'\n" "$server_url"
+        printf "  option address_resolver 'default-dns'\n"
+        printf "  option address_strategy 'ipv4_only'\n"
+        printf "  option resolve_strategy 'ipv4_only'\n"
+        printf "  option enabled '1'\n" 
 
-      match_node RULESET_CONFIG_KEY_ORDER_ARRAY "$dns_key"
-      if [ -n "$properly_matched_node_name" ]; then
-        printf "  option outbound '%s'\n\n" "routing_node_$properly_matched_node_name" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      else
-        printf "  option outbound '%s'\n\n" "$DEFAULT_GLOBAL_OUTBOUND" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-      fi
+        match_node RULESET_CONFIG_KEY_ORDER_ARRAY "$dns_key"
+        if [ -n "$properly_matched_node_name" ]; then
+          printf "  option outbound '%s'\n\n" "routing_node_$properly_matched_node_name"
+        else
+          printf "  option outbound '%s'\n\n" "$DEFAULT_GLOBAL_OUTBOUND"
+        fi
+      } >>"$TARGET_HOMEPROXY_CONFIG_PATH"
       ((server_url_count++))
     done
   done
@@ -359,11 +356,13 @@ gen_routing_nodes_config() {
     if [ "$key" = "reject_out" ] || [ "$key" = "direct_out" ]; then
       continue
     fi
-    printf "config routing_node 'routing_node_%s'\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option label routing_node_%s\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option enabled '1'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option domain_strategy 'ipv4_only'\n" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
-    printf "  option node 'node_%s_outbound_nodes'\n\n" "$key" >>"$TARGET_HOMEPROXY_CONFIG_PATH"
+    {
+      printf "config routing_node 'routing_node_%s'\n" "$key"
+      printf "  option label routing_node_%s\n" "$key"
+      printf "  option enabled '1'\n"
+      printf "  option domain_strategy 'ipv4_only'\n"
+      printf "  option node 'node_%s_outbound_nodes'\n\n" "$key"
+    } >>"$TARGET_HOMEPROXY_CONFIG_PATH"
   done
 }
 
