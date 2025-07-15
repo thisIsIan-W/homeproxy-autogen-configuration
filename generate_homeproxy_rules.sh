@@ -87,7 +87,11 @@ subscribe() {
   for sub_url in ${SUBSCRIPTION_URLS[@]}; do
     uci add_list $UCI_GLOBAL_CONFIG.subscription.subscription_url=$sub_url
   done
-  uci commit $UCI_GLOBAL_CONFIG.subscription.subscription_url
+
+  if [ -n "${SUBSCRIPTION_USER_AGENT:-}" ]; then
+    uci set $UCI_GLOBAL_CONFIG.subscription.user_agent="$SUBSCRIPTION_USER_AGENT"
+  fi
+  uci commit $UCI_GLOBAL_CONFIG
 
   # Execute the subscription logics.
   local update_subscription_file_path="/etc/homeproxy/scripts/update_subscriptions.uc"
@@ -100,7 +104,7 @@ subscribe() {
   if grep -Eiq 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file"; then
     echo ""
     grep -Ei 'unsupported|Failed to fetch|Error|FATAL' "$hp_log_file" | while IFS= read -r line; do
-     log_warn "$line"
+      log_warn "$line"
     done
     echo ""
   else
