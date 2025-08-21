@@ -136,12 +136,13 @@ gen_public_config() {
     set $UCI_GLOBAL_CONFIG.routing.sniff_override='0'
     set $UCI_GLOBAL_CONFIG.routing.udp_timeout='300'
     set $UCI_GLOBAL_CONFIG.routing.bypass_cn_traffic='0'
+    set $UCI_GLOBAL_CONFIG.routing.domain_strategy='ipv4_only'
 
     set $UCI_GLOBAL_CONFIG.config=$UCI_GLOBAL_CONFIG
     set $UCI_GLOBAL_CONFIG.config.routing_mode='custom'
     set $UCI_GLOBAL_CONFIG.config.routing_port='common'
     set $UCI_GLOBAL_CONFIG.config.proxy_mode='redirect_tproxy'
-    set $UCI_GLOBAL_CONFIG.config.ipv6_support='0'
+    set $UCI_GLOBAL_CONFIG.config.ipv6_support='1'
 
     del $UCI_GLOBAL_CONFIG.nodes_domain
     del $UCI_GLOBAL_CONFIG.dns
