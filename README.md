@@ -2,7 +2,7 @@
 
 ## English
 
-An alternative way to generate your dedicated [homeproxy](https://github.com/immortalwrt/homeproxy) configuration on ImmortalWrt/OpenWrt(23.05.x+) and simplify the major setup process significantly.
+An alternative way to generate your dedicated [HomeProxy](https://github.com/immortalwrt/homeproxy) configuration on ImmortalWrt/OpenWrt(23.05.x+) and simplify the major setup process significantly.
 
 ### Introduction
 
@@ -12,6 +12,8 @@ An alternative way to generate your dedicated [homeproxy](https://github.com/imm
 
 
 ### Steps
+
+#### 1. Execute the Script
 
 Prepare the runtime environment necessary for the script execution via (Skip this step if it has already been prepared):
 
@@ -33,6 +35,32 @@ bash -c "$(curl -fsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-au
 
 <br/>
 
+#### 2. Manual Configuration
+
+**In your browser,** open the ImmortalWrt/OpenWrt admin panel. (**For a clean session, it's recommended to use an incognito/private window and refresh the page.)**
+
+*   Client Settings
+    *   Routing Settings
+        *   Check (Enable) `IPv6 Support`
+        *   (Optional) Domain Strategy: Select `IPv4 Only`
+        *   Select one of the Default Outbound nodes
+        *   Save
+    *   Routing Nodes
+        *   Select the Outbound Node(s)
+        *   Save
+    *   DNS Settings
+        *   Modify the Default DNS Server
+        *   Save
+    *   DNS Servers (Optional)
+        *   Manually select the `Address Resolver` for each entry (i.e., which DNS server to use for resolving the current DNS server's URL/hostname)
+        *   Save
+    *   DNS Rules (Optional)
+        *   Manually select the `Server` for each entry (i.e., which DNS server to use for resolving all domains under the current DNS rule)
+        *   Save
+    *   Save & Apply
+
+All done!
+
 <br/>
 
 ---
@@ -41,16 +69,18 @@ bash -c "$(curl -fsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-au
 
 ## 中文
 
-一个更方便地生成 ImmortalWrt/OpenWrt(23.05.x+) [homeproxy](https://github.com/immortalwrt/homeproxy) 插件大多数常用配置的脚本。
+一个更方便地生成 ImmortalWrt/OpenWrt(23.05.x+) [HomeProxy](https://github.com/immortalwrt/homeproxy) 插件大多数常用配置的脚本。
 
 ### 简介
 
 * 节省大量重复配置所需的时间；
-* 提供替代方案，解决由于潜在的配置不当等原因导致 homeproxy 无法启动或正常使用的问题。
+* 提供替代方案，解决由于潜在的配置不当等原因导致 HomeProxy 无法启动或正常使用的问题。
 
 
 
 ### 使用步骤
+
+#### 1. 执行脚本
 
 准备脚本运行时所需环境（如已准备，则跳过此步）：
 
@@ -69,5 +99,39 @@ bash -c "$(curl -fsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-au
 ```
 
 * 完成！
+
+<br/>
+
+#### 2. 界面操作
+
+回到浏览器 (推荐使用无痕标签页重新登陆后台，并刷新 HomeProxy 界面)：
+
+* 客户端设置
+  * 路由设置
+    * 勾选 IPv6 支持
+    * 域名解析策略选择仅 IPv4 (可选)
+    * 默认出站
+      * 若 `rules.sh` 的规则集仅匹配直连其余全部走代理，选择`你自定义的某个代理节点`
+      * 若 `rules.sh` 的规则集仅匹配代理其余全部走直连，选择`直连`
+    * 保存
+  * 路由节点
+    * 选择出站节点
+    * 保存
+  * DNS 设置
+    * 修改默认 DNS 服务器
+    * 若 `rules.sh` 的规则集匹配直连其余全部走代理，选择`境外 DNS 服务器`
+    * 若 `rules.sh` 的规则集匹配代理其余全部走直连，选择`国内 DNS 服务器`
+    * 保存
+  * DNS 服务器 (可选)
+    * 手动为每一个条目选择 `地址解析器`，也就是用哪个 DNS 服务器解析当前 DNS 服务器 URL
+    * 保存
+  * DNS 规则 (可选)
+    * 手动为每一个条目选择 `服务器`，也就是用哪个 DNS 服务器解析当前 DNS 规则下的所有域名
+    * 保存
+  * 保存并应用
+
+结束！
+
+
 
 更多细节，请参阅 [说明书](https://thisisian-w.github.io/2024/10/30/homeproxy-one-click-configure-scripts) 。
