@@ -41,8 +41,6 @@ bash -c "$(curl -fsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-au
 
 *   Client Settings
     *   Routing Settings
-        *   Check (Enable) `IPv6 Support`
-        *   (Optional) Domain Strategy: Select `IPv4 Only`
         *   Select one of the Default Outbound nodes
         *   Save
     *   Routing Nodes
@@ -108,8 +106,6 @@ bash -c "$(curl -fsSl https://raw.githubusercontent.com/thisIsIan-W/homeproxy-au
 
 * 客户端设置
   * 路由设置
-    * 勾选 IPv6 支持
-    * 域名解析策略选择仅 IPv4 (可选)
     * 默认出站
       * 若 `rules.sh` 的规则集仅匹配直连其余全部走代理，选择`你自定义的某个代理节点`
       * 若 `rules.sh` 的规则集仅匹配代理其余全部走直连，选择`直连`
