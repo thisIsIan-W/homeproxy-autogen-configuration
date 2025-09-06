@@ -1,7 +1,7 @@
 #!/bin/bash
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: GPL-2.0-only
 #
-# Copyright (C) 2024 thisIsIan-W
+# Copyright (C) 2025 thisIsIan-W
 
 TARGET_HOMEPROXY_CONFIG_PATH="/etc/config/homeproxy"
 
